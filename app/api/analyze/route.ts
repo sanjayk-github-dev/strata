@@ -89,7 +89,27 @@ export async function GET(request: Request): Promise<Response> {
           const c = citeParagraph(doc, i);
           if (c) claims.push({ text: `¶${c.paragraphNumber}`, citation: c });
         }
-        const verificationRate = gateClaims(doc, claims).verificationRate;
+        const gate = gateClaims(doc, claims);
+        const verificationRate = gate.verificationRate;
+        const claimsChecked = claims.length;
+
+        /**
+         * The document's own top-level structure.
+         *
+         * For a proposed rule this is the only substantive analysis available — there are
+         * no determinations to find and no redline to parse — but the outline is the
+         * agency's own account of what it is proposing, and it is worth showing rather
+         * than presenting a page of zeroes.
+         */
+        const outline = doc.sections
+          .filter((sec) => sec.depth <= 2 && sec.region === "preamble")
+          .slice(0, 60)
+          .map((sec) => ({
+            id: sec.id,
+            depth: sec.depth,
+            title: sec.headingPath[sec.headingPath.length - 1] ?? "",
+            span: sec.span,
+          }));
 
         let determinations: Determination[] = extractDeterminations(doc);
         emit({
@@ -174,6 +194,8 @@ export async function GET(request: Request): Promise<Response> {
             meta: { ...doc.meta, officialUrl: officialUrl(doc.meta.htmlUrl, doc.meta.frDocNumber) },
             capabilities: doc.capabilityNotes.map((n) => ({ ...n, label: TIER_LABEL[n.tier] })),
             verificationRate,
+            claimsChecked,
+            outline,
             funnel: materiality.funnel,
             coverage,
             redline: { available: !!rl.region, reason: rl.unavailableReason ?? null },

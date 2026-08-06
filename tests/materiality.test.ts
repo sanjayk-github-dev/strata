@@ -33,6 +33,11 @@ const META: DocumentMeta = {
   pageLength: 1,
   htmlUrl: "",
   xmlUrl: "",
+  abstract: null,
+  commentsCloseOn: null,
+  effectiveOn: null,
+  datesNote: null,
+  cfrReferences: [],
 };
 
 /** Build a minimal FERC document whose appendix declares the redline convention. */

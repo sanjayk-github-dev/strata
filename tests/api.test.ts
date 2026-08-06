@@ -93,6 +93,19 @@ describe("proceeding enumeration (PRD W1)", () => {
   });
 });
 
+async function analyzeDoc(docNumber: string) {
+  const res = await fetch(`${BASE}/api/analyze?doc=${docNumber}&model=0`);
+  expect(res.status).toBe(200);
+  const text = await res.text();
+  const messages = text
+    .split("\n")
+    .filter((l) => l.trim() !== "")
+    .map((l) => JSON.parse(l) as Record<string, any>);
+  const last = messages[messages.length - 1];
+  if (!last) throw new Error("stream produced no messages");
+  return { messages, last, bytes: text.length };
+}
+
 describe("analysis stream (PRD W2)", () => {
   async function analyze(docNumber: string) {
     const res = await fetch(`${BASE}/api/analyze?doc=${docNumber}&model=0`);
@@ -147,6 +160,40 @@ describe("analysis stream (PRD W2)", () => {
     // redline-only tool would show as nothing at all.
     expect(result.coverage.totalCards).toBe(66);
     expect(result.cards.every((c: { editCount: number }) => c.editCount === 0)).toBe(true);
+  }, 180_000);
+});
+
+describe("a proposed rule is useful, not a page of zeroes", () => {
+  it("surfaces the comment deadline, which is the costliest thing to miss", async () => {
+    // The PRD names a blown comment deadline as the top cost: the record closes and
+    // there is no second opportunity to shape the rule. For a NOPR it belongs above
+    // everything else on the page.
+    const { last } = await analyzeDoc("2022-13470");
+    expect(last.result.meta.commentsCloseOn).toBe("2022-10-13");
+    expect(last.result.meta.datesNote).toMatch(/Reply Comments/i);
+    expect(last.result.meta.cfrReferences).toContain("18 CFR Part 35");
+  }, 180_000);
+
+  it("shows the agency's own abstract rather than a generated summary", async () => {
+    // Authoritative, published, and free of our inference — the right kind of summary for
+    // a product whose premise is verifiability.
+    const { last } = await analyzeDoc("2022-13470");
+    expect(last.result.meta.abstract).toMatch(/Notice of Proposed Rulemaking/i);
+  }, 180_000);
+
+  it("shows the document's own outline when there is nothing else to analyse", async () => {
+    const { last } = await analyzeDoc("2022-13470");
+    expect(last.result.coverage.totalCards).toBe(0);
+    const titles = last.result.outline.map((o: { title: string }) => o.title);
+    expect(titles.some((t: string) => /Proposed Reforms/i.test(t))).toBe(true);
+  }, 180_000);
+
+  it("reports the citation denominator, not a bare percentage", async () => {
+    // "100% verified" with nothing to compare against is noise. The count is what makes
+    // the number mean anything.
+    const { last } = await analyzeDoc("2022-13470");
+    expect(last.result.claimsChecked).toBe(370);
+    expect(last.result.verificationRate).toBe(1);
   }, 180_000);
 });
 

@@ -66,3 +66,12 @@ a { color:inherit }
 .stages .tick { width:1rem; color:var(--ok) }
 .stages b { font-weight:500 }
 .stages .detail { color:var(--mut) }
+.dates { display:flex; gap:1.25rem; flex-wrap:wrap; align-items:baseline;
+  border-left:3px solid var(--mat); padding:.4rem .75rem; margin:0 0 .9rem;
+  background:var(--bg); border-radius:0 6px 6px 0 }
+.deadline b { color:var(--mat) }
+.abstract { font-size:.85rem; line-height:1.65; background:var(--bg);
+  border:1px solid var(--line); border-radius:8px; padding:.7rem .8rem; margin:0 0 1rem }
+.outline { list-style:none; padding:0; margin:0; font-size:.85rem }
+.outline li { padding:.12rem 0; border-bottom:1px solid var(--line) }
+.outline .l2 { padding-left:1.2rem; color:var(--mut) }

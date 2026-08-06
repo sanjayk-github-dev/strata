@@ -62,9 +62,22 @@ interface Card {
 }
 
 interface Analysis {
-  meta: { frDocNumber: string; title: string; status: string; action: string; officialUrl: string };
+  meta: {
+    frDocNumber: string;
+    title: string;
+    status: string;
+    action: string;
+    officialUrl: string;
+    abstract: string | null;
+    commentsCloseOn: string | null;
+    effectiveOn: string | null;
+    datesNote: string | null;
+    cfrReferences: string[];
+  };
   capabilities: Array<{ tier: string; available: boolean; reason: string; label: string }>;
   verificationRate: number;
+  claimsChecked: number;
+  outline: Array<{ id: string; depth: number; title: string; span: [number, number] }>;
   funnel: { material: number; editorial: number; undecided: number; totalEdits: number; ruleCoverage: number };
   coverage: {
     determinations: number;
@@ -298,8 +311,43 @@ function Result({
             View official document ↗
           </a>
         </div>
+        {(analysis.meta.commentsCloseOn || analysis.meta.effectiveOn) && (
+          <div className="dates">
+            {analysis.meta.commentsCloseOn && (
+              <div className="deadline">
+                <b>Comments due {analysis.meta.commentsCloseOn}</b>
+                {analysis.meta.datesNote && <div className="sub">{analysis.meta.datesNote}</div>}
+              </div>
+            )}
+            {analysis.meta.effectiveOn && <div>Effective {analysis.meta.effectiveOn}</div>}
+            {analysis.meta.cfrReferences.length > 0 && (
+              <div className="sub">Affects {analysis.meta.cfrReferences.join(", ")}</div>
+            )}
+          </div>
+        )}
+
+        {analysis.meta.abstract && (
+          <div className="abstract">
+            <div className="sub" style={{ margin: "0 0 .25rem" }}>
+              Agency summary, as published
+            </div>
+            {analysis.meta.abstract}
+          </div>
+        )}
+
         <div className="stats">
-          <div className="stat"><b>{(verificationRate * 100).toFixed(1)}%</b><span>citations verified</span></div>
+          <div className="stat">
+            <b>
+              {analysis.claimsChecked > 0
+                ? `${(verificationRate * 100).toFixed(1)}%`
+                : "—"}
+            </b>
+            <span>
+              {analysis.claimsChecked > 0
+                ? `${analysis.claimsChecked.toLocaleString()} source citations checked`
+                : "no citations to check"}
+            </span>
+          </div>
           <div className="stat"><b>{coverage.determinations}</b><span>determinations</span></div>
           <div className="stat"><b>{funnel.totalEdits}</b><span>text changes</span></div>
           <div className="stat"><b>{(funnel.ruleCoverage * 100).toFixed(0)}%</b><span>auto-classified</span></div>
@@ -320,6 +368,24 @@ function Result({
           {!redline.available && redline.reason ? ` ${redline.reason}` : ""}
         </div>
       </div>
+
+      {analysis.cards.length === 0 && analysis.outline.length > 0 && (
+        <div className="panel">
+          <h3 style={{ margin: "0 0 .3rem", fontSize: ".95rem" }}>What this document proposes</h3>
+          <div className="sub" style={{ margin: "0 0 .6rem" }}>
+            A proposed rule proposes rather than decides, so there are no determinations to
+            analyse and no marked-up text to compare. Its own structure is shown below — this
+            is the agency&apos;s outline, not our summary.
+          </div>
+          <ul className="outline">
+            {analysis.outline.map((o) => (
+              <li key={o.id} className={o.depth === 1 ? "l1" : "l2"}>
+                {o.title}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {shown.map((card) => (
         <CardView key={card.id} card={card} docNumber={docNumber} />

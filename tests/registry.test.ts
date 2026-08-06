@@ -33,6 +33,11 @@ const ferc = (over: Partial<DocumentMeta> = {}): DocumentMeta => ({
   pageLength: 1,
   htmlUrl: "",
   xmlUrl: "",
+  abstract: null,
+  commentsCloseOn: null,
+  effectiveOn: null,
+  datesNote: null,
+  cfrReferences: [],
   ...over,
 });
 

@@ -115,6 +115,16 @@ export async function loadXml(
 }
 
 /**
+ * Bump when the shape of cached metadata changes.
+ *
+ * Without a version in the key, adding a field silently serves the old shape forever:
+ * `abstract`, `commentsCloseOn` and the rest were fetched correctly and then discarded in
+ * favour of a stale cache entry, and the only symptom was a missing field in the UI.
+ * Document XML needs no equivalent — it is the agency's bytes and does not change shape.
+ */
+const META_SCHEMA_VERSION = 2;
+
+/**
  * Fetch a document's metadata, using the cache when available.
  *
  * Metadata is cached alongside the XML rather than fetched every time. Without this a
@@ -127,7 +137,7 @@ export async function loadMeta(
   opts: PipelineOptions = {},
 ): Promise<DocumentMeta> {
   const cache = opts.cache ?? new FileCache();
-  const key = `meta/${frDocNumber}`;
+  const key = `meta/v${META_SCHEMA_VERSION}/${frDocNumber}`;
   const hit = await cache.get(key);
   if (hit !== null) {
     try {

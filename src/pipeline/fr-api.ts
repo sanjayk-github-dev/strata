@@ -25,6 +25,11 @@ const FIELDS = [
   "page_length",
   "html_url",
   "full_text_xml_url",
+  "abstract",
+  "comments_close_on",
+  "effective_on",
+  "dates",
+  "cfr_references",
 ] as const;
 
 /**
@@ -72,6 +77,11 @@ interface RawDoc {
   page_length?: number | null;
   html_url?: string;
   full_text_xml_url?: string | null;
+  abstract?: string | null;
+  comments_close_on?: string | null;
+  effective_on?: string | null;
+  dates?: string | null;
+  cfr_references?: Array<{ title?: number | null; part?: string | null }> | null;
 }
 
 function toMeta(d: RawDoc): DocumentMeta {
@@ -91,6 +101,13 @@ function toMeta(d: RawDoc): DocumentMeta {
     pageLength: d.page_length ?? null,
     htmlUrl: d.html_url ?? "",
     xmlUrl: d.full_text_xml_url ?? "",
+    abstract: d.abstract ?? null,
+    commentsCloseOn: d.comments_close_on ?? null,
+    effectiveOn: d.effective_on ?? null,
+    datesNote: d.dates ?? null,
+    cfrReferences: (d.cfr_references ?? [])
+      .map((r) => (r.title && r.part ? `${r.title} CFR Part ${r.part}` : null))
+      .filter((x): x is string => x !== null),
   };
 }
 

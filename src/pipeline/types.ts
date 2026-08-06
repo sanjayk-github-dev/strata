@@ -31,6 +31,20 @@ export interface DocumentMeta {
   pageLength: number | null;
   htmlUrl: string;
   xmlUrl: string;
+  /** The agency's own summary of the document. Authoritative, and free of our inference. */
+  abstract: string | null;
+  /**
+   * Comment deadline, for a document still open for comment.
+   *
+   * The PRD names a missed comment deadline as the costliest failure: the record closes
+   * and there is no second opportunity to shape the rule. It belongs above the fold.
+   */
+  commentsCloseOn: string | null;
+  effectiveOn: string | null;
+  /** The agency's own prose about deadlines, which often names more than one. */
+  datesNote: string | null;
+  /** Parts of the Code of Federal Regulations this document affects. */
+  cfrReferences: string[];
 }
 
 /**

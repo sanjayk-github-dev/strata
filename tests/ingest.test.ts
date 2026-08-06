@@ -98,6 +98,11 @@ describe("capability detection", () => {
       pageLength: 10,
       htmlUrl: "",
       xmlUrl: "",
+      abstract: null,
+      commentsCloseOn: null,
+      effectiveOn: null,
+      datesNote: null,
+      cfrReferences: [],
     };
     const xml =
       `<RULE><PREAMB><AGENCY>EPA</AGENCY></PREAMB><SUPLINF>` +
