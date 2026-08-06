@@ -14,11 +14,12 @@
 
 import { locateQuote } from "./citation.js";
 import { deriveConfidence } from "./card.js";
-import type { ClassifiedGroup } from "./materiality.js";
+import type { ClassifiedGroup, MaterialityResult } from "./materiality.js";
 import type {
   Confidence,
   Determination,
   Disposition,
+  Edit,
   Materiality,
   ParsedDocument,
 } from "./types.js";
@@ -223,6 +224,88 @@ export interface ClassifiedResidual {
   escalated: boolean;
   escalationReason: EscalationReason;
   reason: string;
+}
+
+/**
+ * Fold model judgements back into the rule-tier result.
+ *
+ * Without this the model tier is decorative: `classifyResiduals` computes a judgement for
+ * every group the rules declined, and if the caller does not apply it, the cards still
+ * show those groups as "needs review". The work is done, reported, and discarded — which
+ * is exactly what was happening in the analyze route.
+ *
+ * Escalated judgements are deliberately NOT applied. A judgement the model itself flagged
+ * as low-confidence, ungrounded, or never made — a provider outage — must not silently
+ * become a confident label on a card. Those stay `undecided` and keep reaching a human.
+ */
+export function applyResiduals(
+  materiality: MaterialityResult,
+  residuals: readonly ClassifiedResidual[],
+): MaterialityResult {
+  const decided = new Map<ClassifiedGroup, ClassifiedResidual>();
+  for (const r of residuals) {
+    if (r.materiality === "undecided" || r.escalated) continue;
+    decided.set(r.group, r);
+  }
+  if (decided.size === 0) return materiality;
+
+  const counts: Record<Materiality, number> = {
+    material: 0,
+    clarifying: 0,
+    editorial: 0,
+    undecided: 0,
+  };
+  const byRule: Record<string, number> = {};
+  const groups: ClassifiedGroup[] = [];
+  const edits: Edit[] = [];
+
+  for (const g of materiality.groups) {
+    const applied = decided.get(g);
+    const next: ClassifiedGroup = applied
+      ? {
+          ...g,
+          result: {
+            materiality: applied.materiality,
+            ruleId: "model",
+            reason: applied.reason,
+          },
+        }
+      : g;
+
+    groups.push(next);
+    byRule[next.result.ruleId] = (byRule[next.result.ruleId] ?? 0) + 1;
+    for (const edit of next.group.edits) {
+      counts[next.result.materiality]++;
+      edits.push(
+        next.result.materiality === "undecided"
+          ? { ...edit, materiality: "undecided" }
+          : {
+              ...edit,
+              materiality: next.result.materiality,
+              decidedBy: applied ? ("model" as const) : ("rule" as const),
+              ruleId: next.result.ruleId,
+            },
+      );
+    }
+  }
+
+  const total = materiality.funnel.totalEdits;
+  const settled = counts.material + counts.clarifying + counts.editorial;
+  return {
+    groups,
+    edits,
+    funnel: {
+      ...materiality.funnel,
+      material: counts.material,
+      clarifying: counts.clarifying,
+      editorial: counts.editorial,
+      undecided: counts.undecided,
+      // Coverage now means "settled by either tier", so it is reported, not conflated
+      // with the rule tier's own share.
+      ruleCoverage: total === 0 ? 0 : settled / total,
+      byRule,
+    },
+  };
 }
 
 export interface ResidualOptions {

@@ -17,6 +17,7 @@ export {
   MATERIALITY_LABEL,
   PRIORITY_LABEL,
   PROVISION_STATUS_LABEL,
+  STAGE_LABEL,
   TIER_LABEL,
   officialUrl,
 } from "./labels.js";
@@ -65,6 +66,7 @@ export {
   type RuleResult,
 } from "./materiality.js";
 export {
+  applyResiduals,
   classifyDisposition,
   classifyResiduals,
   measureAgreement,

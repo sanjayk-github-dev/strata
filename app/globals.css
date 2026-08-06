@@ -61,3 +61,8 @@ ins { background:rgba(22,163,74,.18); text-decoration:none; padding:0 .1rem }
   border:1px solid var(--line); border-radius:4px; padding:.02rem .3rem; font-size:.95em }
 .hint { font-size:.72rem; color:var(--mut); margin-left:.3rem }
 a { color:inherit }
+.stages { font-family:inherit; font-size:.85rem; color:var(--fg) }
+.stages div { padding:.15rem 0; display:flex; gap:.5rem; align-items:baseline }
+.stages .tick { width:1rem; color:var(--ok) }
+.stages b { font-weight:500 }
+.stages .detail { color:var(--mut) }

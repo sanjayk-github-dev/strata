@@ -67,3 +67,23 @@ export const MATERIALITY_LABEL: Record<string, string> = {
 export function officialUrl(htmlUrl: string, frDocNumber: string): string {
   return htmlUrl || `https://www.federalregister.gov/d/${frDocNumber}`;
 }
+
+/**
+ * Progress messages during analysis.
+ *
+ * The stage keys are internal and stable (the client dedupes on them); these are what a
+ * reader sees. The prior labels were a debug log — "capabilities: T1 + T2 + T3", "cards",
+ * "model". The worst was **"rules"**, our name for the deterministic classification tier:
+ * in a product about regulations, a line reading "rules — 61 material" invites exactly the
+ * wrong reading.
+ */
+export const STAGE_LABEL: Record<string, string> = {
+  fetching: "Retrieving document",
+  parsed: "Reading document",
+  capabilities: "Checking available analysis",
+  determinations: "Finding Commission determinations",
+  redline: "Extracting marked-up changes",
+  rules: "Screening changes automatically",
+  model: "Assessing changes needing judgement",
+  cards: "Assembling review items",
+};

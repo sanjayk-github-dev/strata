@@ -21,6 +21,13 @@ import {
   PROVISION_STATUS_LABEL,
 } from "@/src/pipeline/labels";
 
+interface StageLine {
+  key: string;
+  label: string;
+  detail: string;
+  done: boolean;
+}
+
 interface Version {
   frDocNumber: string;
   title: string;
@@ -83,7 +90,7 @@ export default function Workspace() {
   const [query, setQuery] = useState("RM22-14");
   const [versions, setVersions] = useState<Version[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [stages, setStages] = useState<string[]>([]);
+  const [stages, setStages] = useState<StageLine[]>([]);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,11 +144,16 @@ export default function Workspace() {
           else if (msg.result) setAnalysis(msg.result as Analysis);
           else if (msg.stage) {
             setStages((prev) => {
-              const label = `${msg.stage.padEnd(16)} ${msg.detail ?? ""}`;
               const next = [...prev];
-              const at = next.findIndex((l) => l.startsWith(msg.stage.padEnd(16)));
-              if (at >= 0) next[at] = label;
-              else next.push(label);
+              const at = next.findIndex((s) => s.key === msg.stage);
+              const entry = {
+                key: msg.stage as string,
+                label: (msg.label ?? msg.stage) as string,
+                detail: (msg.detail ?? "") as string,
+                done: Boolean(msg.done),
+              };
+              if (at >= 0) next[at] = entry;
+              else next.push(entry);
               return next;
             });
           }
@@ -248,7 +260,11 @@ export default function Workspace() {
       {stages.length > 0 && !analysis && (
         <div className="panel stages">
           {stages.map((s) => (
-            <div key={s}>{s}</div>
+            <div key={s.key}>
+              <span className="tick">{s.done ? "✓" : "…"}</span>
+              <b>{s.label}</b>
+              {s.detail && <span className="detail"> — {s.detail}</span>}
+            </div>
           ))}
         </div>
       )}

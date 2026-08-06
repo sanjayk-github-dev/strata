@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { StubLlmClient, cassetteKey } from "../src/llm/index.js";
 import type { LlmClient } from "../src/llm/index.js";
 import {
+  applyResiduals,
   classifyDisposition,
   classifyEdits,
   classifyResiduals,
@@ -421,6 +422,97 @@ describe("rule/model agreement", () => {
     const report = await measureAgreement(d, m.groups, failing, 6);
     expect(report.unanswered).toBe(6);
     expect(report.agreementRate).toBe(0);
+  });
+});
+
+describe("model judgements reach the output", () => {
+  async function residualSetup(n = 6) {
+    const d = await doc(DOCS.order2023A);
+    const m = classifyEdits(d, extractRedline(d).edits);
+    const undecided = m.groups.filter((g) => g.result.materiality === "undecided");
+    return { d, m, groups: undecided.slice(0, n) };
+  }
+
+  it("applies confident judgements back into the funnel", async () => {
+    // Without this the model tier is decorative: judgements were computed, reported in
+    // the progress line, and discarded, so cards still read "needs review". Measured on
+    // Order 2023-A: undecided falls 443 → 364 once applied.
+    const { d, m, groups } = await residualSetup(4);
+    const before = m.funnel.undecided;
+
+    const llm = new StubLlmClient([
+      jsonOf({
+        results: groups.map((_, i) => ({
+          i,
+          materiality: "editorial",
+          reason: "house style",
+          confidence: 0.95,
+        })),
+      }),
+    ]);
+    const residuals = await classifyResiduals(d, groups, llm, { batchSize: 10 });
+    const after = applyResiduals(m, residuals);
+
+    expect(after.funnel.undecided).toBe(before - 4);
+    expect(after.funnel.editorial).toBe(m.funnel.editorial + 4);
+  });
+
+  it("does NOT apply an escalated judgement", async () => {
+    // A judgement the model flagged as low-confidence must not silently become a
+    // confident label on a card. It stays undecided and keeps reaching a human.
+    const { d, m, groups } = await residualSetup(3);
+    const llm = new StubLlmClient([
+      jsonOf({
+        results: groups.map((_, i) => ({
+          i,
+          materiality: "material",
+          reason: "unsure",
+          confidence: 0.2, // below threshold → escalated
+        })),
+      }),
+    ]);
+    const residuals = await classifyResiduals(d, groups, llm, { batchSize: 10 });
+    expect(residuals.every((r) => r.escalated)).toBe(true);
+
+    const after = applyResiduals(m, residuals);
+    expect(after.funnel.undecided).toBe(m.funnel.undecided);
+  });
+
+  it("preserves conservation (I1) after applying", async () => {
+    const { d, m, groups } = await residualSetup(5);
+    const llm = new StubLlmClient([
+      jsonOf({
+        results: groups.map((_, i) => ({
+          i,
+          materiality: "material",
+          reason: "x",
+          confidence: 0.9,
+        })),
+      }),
+    ]);
+    const after = applyResiduals(m, await classifyResiduals(d, groups, llm, { batchSize: 10 }));
+    const f = after.funnel;
+    expect(f.material + f.clarifying + f.editorial + f.undecided).toBe(f.totalEdits);
+    expect(after.groups).toHaveLength(m.groups.length);
+    expect(after.edits).toHaveLength(m.edits.length);
+  });
+
+  it("marks applied edits as model-decided, so provenance survives", async () => {
+    const { d, m, groups } = await residualSetup(2);
+    const llm = new StubLlmClient([
+      jsonOf({
+        results: groups.map((_, i) => ({ i, materiality: "material", reason: "x", confidence: 0.9 })),
+      }),
+    ]);
+    const after = applyResiduals(m, await classifyResiduals(d, groups, llm, { batchSize: 10 }));
+    const modelDecided = after.edits.filter((e) => e.decidedBy === "model");
+    expect(modelDecided.length).toBeGreaterThan(0);
+    for (const e of modelDecided) expect(e.ruleId).toBe("model");
+  });
+
+  it("is a no-op when nothing was settled", async () => {
+    const { m } = await residualSetup(2);
+    expect(applyResiduals(m, [])).toBe(m);
   });
 });
 

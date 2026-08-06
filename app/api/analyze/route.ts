@@ -17,7 +17,9 @@ import {
   classifyResiduals,
   crossRefStats,
   extractDeterminations,
+  applyResiduals,
   officialUrl,
+  STAGE_LABEL,
   TIER_LABEL,
   extractRedline,
   gateClaims,
@@ -29,6 +31,19 @@ import { cachedLlmFromEnv } from "@/src/llm/index";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
+/** Word count without allocating an array over a multi-megabyte string. */
+function approxWords(text: string): number {
+  let words = 0;
+  let inWord = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    const space = ch === " " || ch === "\n" || ch === "\t" || ch === "\r";
+    if (!space && !inWord) words++;
+    inWord = !space;
+  }
+  return words;
+}
 
 interface Stage {
   stage: string;
@@ -45,21 +60,24 @@ export async function GET(request: Request): Promise<Response> {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const emit = (obj: Stage | Record<string, unknown>) =>
-        controller.enqueue(encoder.encode(`${JSON.stringify(obj)}\n`));
+      const emit = (obj: Stage | Record<string, unknown>) => {
+        const stage = (obj as Stage).stage;
+        const payload = stage ? { ...obj, label: STAGE_LABEL[stage] ?? stage } : obj;
+        controller.enqueue(encoder.encode(`${JSON.stringify(payload)}\n`));
+      };
 
       try {
-        emit({ stage: "fetching", detail: docNumber });
+        emit({ stage: "fetching", detail: `Federal Register ${docNumber}` });
         const doc = await analyzeDocument(docNumber);
         emit({
           stage: "parsed",
-          detail: `${doc.text.length.toLocaleString()} chars · ${doc.sections.length} sections`,
+          detail: `${approxWords(doc.text).toLocaleString()} words · ${doc.sections.length} sections`,
           done: true,
         });
 
         emit({
           stage: "capabilities",
-          detail: doc.capabilities.join(" + "),
+          detail: doc.capabilities.map((t) => TIER_LABEL[t]).join(" · "),
           done: true,
           capabilities: doc.capabilityNotes.map((n) => ({ ...n, label: TIER_LABEL[n.tier] })),
           meta: doc.meta,
@@ -76,7 +94,7 @@ export async function GET(request: Request): Promise<Response> {
         let determinations: Determination[] = extractDeterminations(doc);
         emit({
           stage: "determinations",
-          detail: `${determinations.length} blocks · ${(crossRefStats(doc).coverage * 100).toFixed(0)}% cross-referenced`,
+          detail: `${determinations.length} determinations · ${(crossRefStats(doc).coverage * 100).toFixed(0)}% cite a provision`,
           done: true,
         });
 
@@ -84,46 +102,59 @@ export async function GET(request: Request): Promise<Response> {
         emit({
           stage: "redline",
           detail: rl.region
-            ? `${rl.edits.length} edits`
-            : (rl.unavailableReason ?? "unavailable"),
+            ? `${rl.edits.length.toLocaleString()} text changes found`
+            : "This document publishes no marked-up text",
           done: true,
         });
 
-        const materiality = classifyEdits(doc, rl.edits);
+        let materiality = classifyEdits(doc, rl.edits);
         emit({
           stage: "rules",
-          detail: `${materiality.funnel.material} material · ${materiality.funnel.editorial} editorial · ${materiality.funnel.undecided} undecided`,
+          detail:
+            `${materiality.funnel.material} change an obligation · ` +
+            `${materiality.funnel.editorial} editorial only · ` +
+            `${materiality.funnel.undecided} need judgement`,
           done: true,
         });
 
         // ---- model tier, when configured ----
         const llm = useModel ? cachedLlmFromEnv() : null;
         if (llm) {
-          emit({ stage: "model", detail: `classifying via ${llm.label} (cached)` });
+          emit({ stage: "model", detail: `Reading determinations (${llm.label})` });
 
           const classified: Determination[] = [];
           for (const [i, det] of determinations.entries()) {
             const r = await classifyDisposition(doc, det, llm);
             classified.push(r.determination);
             if (i % 5 === 0 || i === determinations.length - 1) {
-              emit({ stage: "model", detail: `dispositions ${i + 1}/${determinations.length}` });
+              emit({
+                stage: "model",
+                detail: `Determination ${i + 1} of ${determinations.length}`,
+              });
             }
           }
           determinations = classified;
 
           const residuals = await classifyResiduals(doc, materiality.groups, llm, { limit: 60 });
-          const decided = residuals.filter((r) => r.materiality !== "undecided").length;
+          // Fold the judgements in. Computing them and discarding them would make the
+          // whole model tier decorative — the cards would still say "needs review".
+          materiality = applyResiduals(materiality, residuals);
+
+          const read = determinations.filter((d) => d.disposition !== "unclassified").length;
+          const settled = residuals.filter(
+            (r) => r.materiality !== "undecided" && !r.escalated,
+          ).length;
           emit({
             stage: "model",
-            detail: `${determinations.filter((d) => d.disposition !== "unclassified").length} dispositions · ${decided} residuals decided`,
+            detail: `${read} determinations read · ${settled} further changes classified`,
             done: true,
           });
         } else {
           emit({
             stage: "model",
             detail: useModel
-              ? "no provider configured — deterministic tiers only"
-              : "skipped",
+              ? "No model configured — automatic screening only"
+              : "Skipped",
             done: true,
           });
         }
@@ -134,7 +165,7 @@ export async function GET(request: Request): Promise<Response> {
           materiality,
           rl.region?.span ?? null,
         );
-        emit({ stage: "cards", detail: `${cards.length} cards`, done: true });
+        emit({ stage: "cards", detail: `${cards.length} changes to review`, done: true });
 
         // Cards without full quote text: the client fetches spans on demand (FR9), which
         // is what keeps responses small enough to be served anywhere.
