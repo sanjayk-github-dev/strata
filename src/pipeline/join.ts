@@ -294,7 +294,9 @@ function makeCard(
     edits,
     ...(determination ? { determination } : {}),
     effect: groups[0] ? effectOf(groups[0]) : "unknown",
-    provisionStatus: deriveProvisionStatus(doc.meta.status, determination?.disposition),
+    provisionStatus: deriveProvisionStatus(doc.meta.status, determination?.disposition, {
+      textualChange: edits.length > 0,
+    }),
     citations,
     confidence: escalated ? "low" : "medium",
     escalated,

@@ -20,10 +20,26 @@ import type {
  * `unknown` case is the important one: an unclassifiable disposition must not collapse
  * into a confident status, so it escalates instead.
  */
+export interface ProvisionEvidence {
+  /**
+   * The redline shows this provision's text changed in this document.
+   *
+   * Distinct from a disposition, and sometimes the only evidence available: most edits are
+   * discussed by no determination at all. Without this input, every edit-only card in an
+   * amended document reported `unknown` — 268 of 299 cards on Order 2023-A, which makes the
+   * field noise a reviewer learns to ignore.
+   */
+  textualChange?: boolean;
+}
+
 export function deriveProvisionStatus(
   documentStatus: Status,
   disposition: Disposition | undefined,
+  evidence: ProvisionEvidence = {},
 ): ProvisionStatus {
+  // A disposition we tried and failed to classify stays unknown even when the text moved:
+  // we know *that* it changed, not *what the agency decided*, and guessing between
+  // "affirmed with rewording" and "modified" is exactly what the design forbids.
   if (disposition === "unclassified") return "unknown";
 
   switch (documentStatus) {
@@ -35,7 +51,9 @@ export function deriveProvisionStatus(
       return "adopted";
 
     case "amended":
-      if (!disposition) return "unknown";
+      // No determination discusses this provision, but the redline shows it changed —
+      // so it was amended here and binds from the effective date.
+      if (!disposition) return evidence.textualChange ? "adopted" : "unknown";
       switch (disposition) {
         case "affirmed":
         case "sustained":

@@ -360,8 +360,24 @@ describe("provision-level status derivation", () => {
     }
   });
 
-  it("an amended document with no disposition yields unknown", () => {
+  it("an amended document with no disposition and no textual evidence yields unknown", () => {
     expect(deriveProvisionStatus("amended", undefined)).toBe("unknown");
+  });
+
+  it("a redline change is evidence enough when no determination discusses it", () => {
+    // Most edits are discussed by no determination. Without this, every edit-only card in
+    // an amended document reported "unknown" — 268 of 299 cards on Order 2023-A, which
+    // turns the field into noise a reviewer learns to ignore. The redline is real
+    // evidence that the provision was amended here.
+    expect(deriveProvisionStatus("amended", undefined, { textualChange: true })).toBe("adopted");
+  });
+
+  it("an unclassified disposition stays unknown even when the text changed", () => {
+    // We know THAT it changed, not WHAT the agency decided. Guessing between "affirmed
+    // with rewording" and "modified" is precisely what the design forbids.
+    expect(deriveProvisionStatus("amended", "unclassified", { textualChange: true })).toBe(
+      "unknown",
+    );
   });
 });
 

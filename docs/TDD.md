@@ -349,7 +349,19 @@ Derived from document `status` combined with the determination's `disposition`:
 | `amended` | `clarified` | `settled` — meaning unchanged but now expressly interpreted |
 | `amended` | `modified` | `adopted` |
 | `amended` | `set-aside` | `reopened` |
+| `amended` | *(none)*, but the redline shows the text changed | `adopted` |
+| `amended` | *(none)*, no textual evidence | `unknown` |
 | any | `unclassified` | `unknown` → escalate |
+
+**Textual change is evidence.** Most edits are discussed by no determination at all, so
+without this input every edit-only card in an amended document reported `unknown` — **268 of 299
+cards** on Order No. 2023-A, which turns the field into noise a reviewer learns to ignore. The redline
+is real evidence that the provision was amended here. With it: `adopted` 274, `settled` 23,
+`reopened` 2, `unknown` 0.
+
+An `unclassified` disposition still yields `unknown` even when the text changed. We know *that* it
+changed, not *what the agency decided*, and guessing between "affirmed with rewording" and "modified"
+is precisely what the design forbids.
 
 The derivation is deterministic given a disposition; only the disposition itself is inferred. The
 `unknown` row is the important one — an unclassifiable disposition must not silently collapse into a
