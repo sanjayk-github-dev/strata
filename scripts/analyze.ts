@@ -16,6 +16,7 @@ import {
   classifyEdits,
   bodyParagraphs,
   citeParagraph,
+  assembleCards,
   crossRefStats,
   extractDeterminations,
   extractRedline,
@@ -108,6 +109,18 @@ function summarize(doc: ParsedDocument): void {
       `  materiality: ${f.material} material · ${f.editorial} editorial · ` +
         `${f.undecided} undecided → ${(f.ruleCoverage * 100).toFixed(1)}% decided by rule`,
     );
+    const asm = assembleCards(doc, dets, classifyEdits(doc, rl.edits), rl.region.span);
+    const cv = asm.coverage;
+    console.log(
+      `  cards: ${cv.totalCards} (${cv.byPriority.material} material · ` +
+        `${cv.byPriority["needs-review"]} need review · ${cv.byPriority.clarifying} clarifying)`,
+    );
+    console.log(
+      `      joins: ${cv.joinedExplicit} explicit · ${cv.joinedImplicit} implicit · ` +
+        `${cv.unjoinedDeterminations} determinations with no textual footprint · ` +
+        `${cv.editOnlyCards} edits nothing discusses`,
+    );
+
     const top = Object.entries(f.byRule)
       .filter(([k]) => k !== "none")
       .sort((a, b) => b[1] - a[1])

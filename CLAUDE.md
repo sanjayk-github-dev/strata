@@ -14,10 +14,10 @@ that constrain implementation choices.
 
 ## Current state
 
-**Phases 1–5 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
+**Phases 1–7 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
 document model, citation verifier, determination blocks (T2), redline extraction (T3), rule-tier
-materiality, and a static HTML report. 205 tests passing. Phases 6–8 not started — no model-tier
-classification, no join, no web app yet.
+materiality, model-tier classification (provider-agnostic), and the join into change cards.
+263 tests passing. Phase 8 not started — no web app yet.
 
 ## Commands
 
@@ -156,6 +156,9 @@ legitimately differ, so surface disagreement rather than resolving it silently.
 | `src/pipeline/determinations.ts` | T2 branch — decision blocks and provision cross-references |
 | `src/pipeline/redline.ts` | T3 branch — region bounds, edit extraction, adjacency grouping |
 | `src/pipeline/materiality.ts` | Rule tier — before/after reconstruction, editorial vs material |
+| `src/pipeline/classify.ts` | Model tier — dispositions and residual materiality, all output validated |
+| `src/pipeline/join.ts` | Joins both branches into prioritised change cards |
+| `src/llm/` | Provider-agnostic client (any OpenAI-compatible endpoint) + cassettes |
 | `src/report/html.ts` | Static review report; renders the funnel and the filtered remainder |
 | `data/manifest.yaml` | Verification set: 7 documents with measured tiers, counts, redline fixtures |
 | `scripts/verify_manifest.py` | Data-drift guard against the live API (pending TS port) |

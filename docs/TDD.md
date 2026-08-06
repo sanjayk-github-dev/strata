@@ -879,6 +879,51 @@ assembled `ChangeCard`.
 | Unjoined items surface as their own group — never dropped (**I1**) | exact, property |
 | Join coverage split: explicit / implicit / unjoined | measured |
 
+### Measured on Order No. 2023-A
+
+| | |
+|---|---|
+| Determinations joined by explicit cross-reference | **16** of 31 |
+| Joined by lexical fallback | 1 |
+| No textual footprint — decision only | 14 |
+| Edits no determination discusses | 264 |
+| **Total cards** | **295** — 38 material, 257 needing review |
+
+Cards come in three shapes, all legitimate: *determination + edits* (a decision and the text it
+moved), *determination alone* (a decision with no textual footprint — the majority of what happens,
+and precisely what a redline-only tool shows as nothing at all), and *edits alone* (text moved with no
+discussion of it).
+
+### Cards are an overlapping cover, not a partition
+
+First-come-first-served claiming suppressed **six real joins** on this document, because two
+determinations can bear on the same provision and the second was being silently dropped. I1 requires
+that nothing is *lost*, not that nothing appears twice — so a group may now appear on more than one
+card, and an edit discussed by two decisions is shown under both.
+
+### Two measurement-driven corrections
+
+**Top-level provisions head differently.** Sub-provisions read `3.1.1.1 Study Deposit`, but top-level
+ones read `Section 3. Interconnection Requests`. A pattern handling only the first form left every
+bare-digit cross-reference — `5`, `7`, `9` — unmatched.
+
+**The lexical fallback scored against the wrong text.** Comparing determination vocabulary to the
+*edit fragment* produced a best score of 0.00 for fourteen of fifteen candidates: sixty characters of
+diff rarely contains a capitalised defined term. Scoring against the enclosing provision's heading —
+the actual topic signal — is what makes the fallback function at all. Even so it contributes only one
+join here, and that is reported rather than dressed up: **explicit cross-referencing carries this
+join, and the honest fallback rate is low.**
+
+A related defect in the same matcher: a sentence-initial "The" fused onto the following term, so
+`Interconnection Customer` and `The Interconnection Customer` were distinct strings — the silent kind
+of mismatch that makes lexical scoring quietly useless.
+
+### Priority, because card count alone is not a useful number
+
+295 cards is tractable only if the ones that move an obligation come first. Cards sort
+**material → needs-review → clarifying**, with escalated items ahead of their peers in each band,
+since the product's claim is that ambiguity is surfaced rather than resolved.
+
 ---
 
 ### Phase 8 — Web app and deployment

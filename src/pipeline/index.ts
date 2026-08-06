@@ -65,6 +65,19 @@ export {
   type ResidualOptions,
 } from "./classify.js";
 export {
+  assembleCards,
+  buildProvisionIndex,
+  cardPriority,
+  definedTerms,
+  provisionNumberOf,
+  type AssemblyResult,
+  type CardPriority,
+  type JoinCoverage,
+  type JoinedCard,
+  type JoinKind,
+  type ProvisionIndex,
+} from "./join.js";
+export {
   deriveConfidence,
   deriveProvisionStatus,
   requiresEscalation,
