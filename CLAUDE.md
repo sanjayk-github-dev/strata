@@ -14,15 +14,17 @@ that constrain implementation choices.
 
 ## Current state
 
-**Phases 1–7 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
+**Phases 1–8 complete locally** (not yet deployed) (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
 document model, citation verifier, determination blocks (T2), redline extraction (T3), rule-tier
 materiality, model-tier classification (provider-agnostic), and the join into change cards.
-263 tests passing. Phase 8 not started — no web app yet.
+and the Next.js review workspace. 276 tests passing, including 13 end-to-end against a real server.
+Vercel deployment not done yet — the app runs locally with no database.
 
 ## Commands
 
 ```bash
 npm install
+npm run dev                         # web app at localhost:3000
 npm run analyze -- RM22-14          # pipeline only: version timeline + per-document analysis
 npm run analyze -- 2024-06563       # a single document; FR URLs also accepted
 npm run analyze -- 2024-06563 out/report   # …and write a static HTML review report
@@ -160,11 +162,18 @@ legitimately differ, so surface disagreement rather than resolving it silently.
 | `src/pipeline/join.ts` | Joins both branches into prioritised change cards |
 | `src/llm/` | Provider-agnostic client (any OpenAI-compatible endpoint) + cassettes |
 | `src/report/html.ts` | Static review report; renders the funnel and the filtered remainder |
+| `app/api/*/route.ts` | Thin callers over the pipeline: enumerate, analyse (streamed), source, feedback |
+| `app/components/Workspace.tsx` | The review UI — timeline, funnel, cards, in-place source, feedback |
+| `src/store/feedback.ts` | Append-only feedback; file-backed locally, behind an interface |
 | `data/manifest.yaml` | Verification set: 7 documents with measured tiers, counts, redline fixtures |
 | `scripts/verify_manifest.py` | Data-drift guard against the live API (pending TS port) |
 
 **The pipeline (`src/pipeline/**`) must stay free of framework imports.** The web app and CLI are thin
 callers; if Next.js or Vercel APIs leak in, local runs and tests stop reflecting production.
+
+Because the pipeline is ESM TypeScript with `.js` import specifiers, `next.config.ts` sets
+`resolve.extensionAlias` so webpack maps `.js` → `.ts`. Do not strip those extensions to appease the
+bundler — the CLI and tests import these modules directly, with no bundler involved.
 
 ## Constraints worth knowing
 
