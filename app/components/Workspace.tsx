@@ -271,7 +271,7 @@ export default function Workspace() {
           </table>
           <div className="sub" style={{ margin: ".6rem 0 0" }}>
             Select a rule or proposed rule to analyse. Procedural notices carry no
-            analysable structure. “Official ↗” opens the document on federalregister.gov.
+            analysable structure.
           </div>
         </div>
       )}
@@ -393,13 +393,6 @@ function Result({
       {analysis.cards.length === 0 && analysis.outline.length > 0 && (
         <div className="panel">
           <h3 style={{ margin: "0 0 .3rem", fontSize: ".95rem" }}>What this document proposes</h3>
-          <div className="sub" style={{ margin: "0 0 .6rem" }}>
-            A proposed rule proposes rather than decides, so there are no determinations to
-            analyse and no marked-up text to compare. Below is the agency&apos;s own section
-            structure — not our summary — with the statutory boilerplate (Paperwork Reduction
-            Act, NEPA, Regulatory Flexibility Act, comment procedures) removed. The
-            highlighted section carries the most content.
-          </div>
           <ul className="outline">
             {analysis.outline.map((o) => (
               <li key={o.id} className={o.primary ? "primary" : ""}>
@@ -506,11 +499,9 @@ function CardView({ card, docNumber }: { card: Card; docNumber: string }) {
         <button className="ghost" onClick={showSource} disabled={loadingSrc}>
           {loadingSrc ? "Loading…" : source ? "Hide source" : "Show source"}
         </button>
-        <span className="hint">
-          {card.editCount > 0
-            ? "Source shows the passage this change sits in."
-            : "This decision changed no regulatory text; source shows the reasoning."}
-        </span>
+        {card.editCount === 0 && (
+          <span className="hint">Changed no regulatory text — source shows the reasoning.</span>
+        )}
         <button className="ghost" onClick={() => sendFeedback("agree")}>Agree</button>
         <button className="ghost" onClick={() => sendFeedback("disagree")}>Disagree</button>
         <button className="ghost" onClick={() => sendFeedback("recategorize")}>Recategorise</button>
