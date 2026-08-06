@@ -12,6 +12,11 @@ import type { DocumentMeta, ParsedDocument } from "./types.js";
 
 export * from "./types.js";
 export {
+  isAdministrative,
+  substantiveOutline,
+  type OutlineEntry,
+} from "./outline.js";
+export {
   DISPOSITION_LABEL,
   JOIN_LABEL,
   MATERIALITY_LABEL,

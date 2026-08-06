@@ -77,7 +77,13 @@ interface Analysis {
   capabilities: Array<{ tier: string; available: boolean; reason: string; label: string }>;
   verificationRate: number;
   claimsChecked: number;
-  outline: Array<{ id: string; depth: number; title: string; span: [number, number] }>;
+  outline: Array<{
+    id: string;
+    title: string;
+    size: number;
+    children: Array<{ id: string; title: string }>;
+    primary: boolean;
+  }>;
   funnel: { material: number; editorial: number; undecided: number; totalEdits: number; ruleCoverage: number };
   coverage: {
     determinations: number;
@@ -354,11 +360,26 @@ function Result({
           <div className="stat"><b>{coverage.totalCards}</b><span>changes to review</span></div>
         </div>
         <div className="sub" style={{ margin: ".8rem 0 0" }}>
-          {capabilities.map((c) => (
-            <div key={c.tier}>
-              {c.available ? "✓" : "·"} <b>{c.label}</b> — {c.reason}
-            </div>
-          ))}
+          {/* T1 is available for every federal document by definition, so stating it
+              carries no information. Only the absences are worth a line — and those are
+              worth a full explanation. */}
+          {(() => {
+            const optional = capabilities.filter((c) => c.tier !== "T1");
+            const on = optional.filter((c) => c.available);
+            const off = optional.filter((c) => !c.available);
+            return (
+              <>
+                {on.length > 0 && (
+                  <div>Analysis available: {on.map((c) => c.label).join(" · ")}</div>
+                )}
+                {off.map((c) => (
+                  <div key={c.tier}>
+                    <b>No {c.label.toLowerCase()}</b> — {c.reason}
+                  </div>
+                ))}
+              </>
+            );
+          })()}
         </div>
         <div className="sub" style={{ margin: ".5rem 0 0" }}>
           {coverage.joinedExplicit + coverage.joinedImplicit} determinations linked to the text
@@ -374,13 +395,22 @@ function Result({
           <h3 style={{ margin: "0 0 .3rem", fontSize: ".95rem" }}>What this document proposes</h3>
           <div className="sub" style={{ margin: "0 0 .6rem" }}>
             A proposed rule proposes rather than decides, so there are no determinations to
-            analyse and no marked-up text to compare. Its own structure is shown below — this
-            is the agency&apos;s outline, not our summary.
+            analyse and no marked-up text to compare. Below is the agency&apos;s own section
+            structure — not our summary — with the statutory boilerplate (Paperwork Reduction
+            Act, NEPA, Regulatory Flexibility Act, comment procedures) removed. The
+            highlighted section carries the most content.
           </div>
           <ul className="outline">
             {analysis.outline.map((o) => (
-              <li key={o.id} className={o.depth === 1 ? "l1" : "l2"}>
+              <li key={o.id} className={o.primary ? "primary" : ""}>
                 {o.title}
+                {o.children.length > 0 && (
+                  <ul>
+                    {o.children.map((c) => (
+                      <li key={c.id}>{c.title}</li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

@@ -20,6 +20,7 @@ import {
   applyResiduals,
   officialUrl,
   STAGE_LABEL,
+  substantiveOutline,
   TIER_LABEL,
   extractRedline,
   gateClaims,
@@ -101,15 +102,7 @@ export async function GET(request: Request): Promise<Response> {
          * agency's own account of what it is proposing, and it is worth showing rather
          * than presenting a page of zeroes.
          */
-        const outline = doc.sections
-          .filter((sec) => sec.depth <= 2 && sec.region === "preamble")
-          .slice(0, 60)
-          .map((sec) => ({
-            id: sec.id,
-            depth: sec.depth,
-            title: sec.headingPath[sec.headingPath.length - 1] ?? "",
-            span: sec.span,
-          }));
+        const outline = substantiveOutline(doc);
 
         let determinations: Determination[] = extractDeterminations(doc);
         emit({
