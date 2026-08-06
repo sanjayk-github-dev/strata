@@ -205,6 +205,14 @@ one published version  (~250,000 words)
 Both branches are required. The regulatory-text branch alone misses every decision with no textual
 footprint; the reasoning branch alone loses the precise operative language.
 
+**Coverage varies by document, and the product says so.** Not every published document supports both
+branches: marked-up regulatory text appears only where the agency publishes a redline, and decision
+blocks exist only in documents that decide (a proposed rule proposes; it does not determine). Strata
+detects per document which analyses its structure supports, runs everything that applies, and states
+plainly what was and was not available — it never silently returns less, and it never approximates an
+analysis whose structural precondition is absent. Every document yields at least the version timeline
+and status.
+
 ### 7.2 Anatomy of a change card
 
 Each card is the atomic unit of review — individually citable, individually reviewable, individually
@@ -257,7 +265,8 @@ version, ordered chronologically, each labeled proposed / final / amended with i
 
 **W2 — Review a version.** User selects a version. Strata presents the triage summary — total edits,
 how many carry legal effect, how many are clarifying, how many are editorial — then the material
-changes as cards, ordered by confidence with ambiguous items first.
+changes as cards, ordered by confidence with ambiguous items first. For a version without redline
+markup, the packet contains dispositions rather than text edits, and says so.
 
 **W3 — Verify a claim.** User opens a card. Strata shows the source passage from the regulatory text
 beside the reasoning paragraph that explains the disposition. The user confirms the claim against the
@@ -277,9 +286,9 @@ accumulate as labeled data.
 |---|---|
 | FR1 | Resolve a proceeding identifier to all published versions with type, date, and source URL |
 | FR2 | Retrieve and parse full document text, preserving section hierarchy, paragraph numbering, and character offsets |
-| FR3 | Extract every discrete edit from redlined regulatory text, anchored to its enclosing section |
+| FR3 | Where the document declares redline markup: extract every discrete edit, anchored to its enclosing section |
 | FR4 | Classify each edit as material, clarifying, or editorial |
-| FR5 | Locate every decision block in the reasoning section and classify its disposition |
+| FR5 | Where the document contains decision blocks: locate each one and classify its disposition |
 | FR6 | Link decision blocks to the provisions they affect via section cross-reference |
 | FR7 | Attach a citation — document, section, paragraph, character span — to every claim |
 | FR8 | Verify every citation against source before display; suppress claims that fail |
@@ -288,6 +297,7 @@ accumulate as labeled data.
 | FR11 | Present the full triage funnel with filtered groups expandable in place |
 | FR12 | Capture per-card expert feedback and persist it |
 | FR13 | Report citation verification rate for every processed version |
+| FR14 | Detect per document which analyses its structure supports; state what was and was not available, and never approximate an unavailable one |
 
 ---
 
@@ -332,7 +342,7 @@ under-surfacing is a liability.
 | Risk | Assessment | Mitigation |
 |---|---|---|
 | **Silent false negatives** | The central product risk. A missed material change is invisible to the user, so the failure never surfaces as a complaint | Show the full funnel with filtered groups inspectable; back-test triage recall against published expert analyses |
-| **Redline markup is not universal** | The regulatory-text branch depends on the regulator publishing marked-up amendments. Not all agencies do | Fall back to deriving changes from the reasoning section; treat markup as an accelerant, not a dependency |
+| **Redline markup is not universal** | The regulatory-text branch depends on the regulator publishing marked-up amendments. Not all documents carry it | The reasoning branch still yields dispositions where markup is absent, and the product states which analyses were available (FR14). Computing changes by aligning unmarked text across versions is a designed successor capability, not silently attempted |
 | **Interpretation is genuinely contested** | Experts disagree with each other on the same text | Surface disagreement rather than resolving it; report competing readings where published analyses conflict |
 | **Expert distrust of AI output** | The target user is professionally sceptical, correctly | Verification-first design; the product never asks to be believed |
 | **No labeled data at launch** | Accuracy claims are unbacked in v1 | Citation verification needs no labels; expert feedback accumulates the labeled set |
