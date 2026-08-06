@@ -48,8 +48,8 @@ order (FERC Order No. 2023-A, 238 Federal Register pages):
 | Total words | **250,331** (roughly three novels) |
 | Reasoning section | 135,543 words across **683 numbered paragraphs** |
 | Redlined regulatory text | 114,788 words |
-| Discrete textual edits in the redline | **several hundred** |
-| Edits that change a legal obligation | **a few dozen** |
+| Discrete textual edits in the redline | **1,431** |
+| Edits that change a legal obligation | **204** — the rest are editorial or need judgement |
 
 The preceding order in the same proceeding is longer still, at 336 Federal Register pages. A team may
 carry a dozen such proceedings simultaneously.
@@ -175,8 +175,8 @@ Supporting jobs:
    is not displayed.
 2. **Escalate rather than guess.** Low confidence is a first-class output. The product is permitted to
    say "this is ambiguous, here is the passage" and is never permitted to resolve ambiguity silently.
-3. **Show what was filtered out.** A user cannot trust a filter they cannot inspect. Surfacing a
-   couple of dozen changes from several hundred is only credible if the remainder stays one click
+3. **Show what was filtered out.** A user cannot trust a filter they cannot inspect. Reducing 1,431
+   edits to the 204 that carry legal effect is only credible if the other 1,227 remain one click
    away.
 4. **Be deterministic wherever the data allows.** Language models are used for judgment, not for facts
    that can be computed. What changed is computed; what it means is inferred and then verified.
@@ -192,16 +192,21 @@ Supporting jobs:
 The core product motion is reduction with the reasoning left intact:
 
 ```
-one published version  (~250,000 words)
+one published version  (250,331 words)
         │
-        ├── regulatory text ──► several hundred discrete edits ──► ~20 with legal effect
+        ├── regulatory text ──► 1,431 discrete edits ──► 204 carrying legal effect
+        │                                                924 editorial
+        │                                                303 needing expert judgement
         │
-        └── reasoning ────────► ~30 decision blocks ────────────► dispositions
+        └── reasoning ────────► 31 decision blocks ────► dispositions
                                           │
                      linked by section cross-reference
                                           ▼
-                              ~25 reviewable change cards
+                                reviewable change cards
 ```
+
+*Measured on FERC Order No. 2023-A. Deterministic rules decide 78.8% of edits; the remainder is
+routed to judgement rather than defaulted to a classification.*
 
 Both branches are required. The regulatory-text branch alone misses every decision with no textual
 footprint; the reasoning branch alone loses the precise operative language.

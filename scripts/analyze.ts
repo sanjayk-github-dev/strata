@@ -7,8 +7,13 @@
  *   npm run analyze -- https://www.federalregister.gov/documents/2024/04/16/2024-06563/...
  */
 
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+import { renderReport } from "../src/report/html.js";
 import {
   analyzeDocument,
+  classifyEdits,
   bodyParagraphs,
   citeParagraph,
   crossRefStats,
@@ -96,7 +101,20 @@ function summarize(doc: ParsedDocument): void {
       `      excluded: ${d.italicsInFootnotes} footnote italics, ` +
         `${d.bracketsInFootnotes} footnote brackets · unmatched brackets: ${d.unmatchedBrackets}`,
     );
-    console.log(`      all edits classified: undecided (materiality is Phase 5)`);
+
+    // Phase 5 — rule-tier materiality. The funnel.
+    const f = classifyEdits(doc, rl.edits).funnel;
+    console.log(
+      `  materiality: ${f.material} material · ${f.editorial} editorial · ` +
+        `${f.undecided} undecided → ${(f.ruleCoverage * 100).toFixed(1)}% decided by rule`,
+    );
+    const top = Object.entries(f.byRule)
+      .filter(([k]) => k !== "none")
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([k, v]) => `${k} ${v}`)
+      .join(" · ");
+    console.log(`      rules fired: ${top}`);
   } else if (rl.unavailableReason) {
     console.log(`  redline: unavailable — ${rl.unavailableReason.split(".")[0]}.`);
   }
@@ -134,12 +152,37 @@ async function main(): Promise<void> {
     );
   }
 
+  const reportPath = process.argv[3];
+
   // Analyse substantive documents; notices carry no analysable structure.
   const substantive = versions.filter((v) => v.type === "Rule" || v.type === "Proposed Rule");
   console.log(`\n  analysing ${substantive.length} rule document(s)…`);
 
   for (const v of substantive) {
-    summarize(await analyzeDocument(v.frDocNumber));
+    const parsed = await analyzeDocument(v.frDocNumber);
+    summarize(parsed);
+
+    if (reportPath) {
+      const rl = extractRedline(parsed);
+      const claims: Claim[] = [];
+      for (let i = 0; i < parsed.paragraphs.length; i++) {
+        const c = citeParagraph(parsed, i);
+        if (c) claims.push({ text: `¶${c.paragraphNumber}`, citation: c });
+      }
+      const out = reportPath.replace(/\.html?$/, "") + `-${v.frDocNumber}.html`;
+      mkdirSync(dirname(out), { recursive: true });
+      writeFileSync(
+        out,
+        renderReport({
+          doc: parsed,
+          materiality: classifyEdits(parsed, rl.edits),
+          determinations: extractDeterminations(parsed),
+          verificationRate: gateClaims(parsed, claims).verificationRate,
+        }),
+        "utf8",
+      );
+      console.log(`  report: ${out}`);
+    }
   }
   console.log();
 }

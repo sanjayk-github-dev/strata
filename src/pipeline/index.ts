@@ -45,6 +45,16 @@ export {
   type RedlineRegion,
 } from "./redline.js";
 export {
+  classifyEdits,
+  classifyGroup,
+  reconstruct,
+  type BeforeAfter,
+  type ClassifiedGroup,
+  type Funnel,
+  type MaterialityResult,
+  type RuleResult,
+} from "./materiality.js";
+export {
   deriveConfidence,
   deriveProvisionStatus,
   requiresEscalation,

@@ -615,8 +615,75 @@ demonstrable without waiting for the web app.
 | **I1** conservation holds | exact, property |
 | Rule coverage — share of edits decided without a model — **reported, not assumed** | measured |
 
-**Risk retired:** whether deterministic rules carry the majority of the volume. *Currently unknown — this
-phase measures it.*
+### Measured: rules carry roughly two-thirds to three-quarters
+
+The open question this phase existed to answer.
+
+| Document | Edits | Groups | Material | Editorial | Undecided | **Rule coverage** |
+|---|---|---|---|---|---|---|
+| Order No. 2023-A | 1,431 | 1,262 | 204 | 924 | 303 | **78.8%** |
+| Order No. 2023 | 1,715 | 746 | 941 | 99 | 675 | **60.6%** |
+
+Rules decided the majority, and a real remainder — 303 and 675 edits — genuinely needs judgement. That
+is the two-tier design working as intended rather than a shortfall: those go to Phase 6 confidence-scored
+and escalable, not defaulted to a classification.
+
+Order No. 2023's high material share is expected — it is the final rule establishing the pro forma text
+wholesale, so its redline against the prior baseline is substantive throughout. Order No. 2023-A is a
+rehearing order making targeted revisions, hence the long editorial tail (750 bare `[the]` deletions).
+
+### Rules operate on groups, and are equivalence tests
+
+Materiality is a property of a *replacement*, not of either side. `[A]` + `a` is a capitalisation fix,
+but neither half says that alone — hence Phase 4's adjacency grouping.
+
+Each editorial rule reconstructs the before and after readings and asks whether they are **equivalent**
+once a legally irrelevant difference is normalised away. That is far stronger than matching the edit
+text, because it cannot be fooled by an edit that merely looks trivial.
+
+| Rule | Class | Fired (2023-A) |
+|---|---|---|
+| `article-only` | editorial | 750 |
+| `numeric-change` | material | 156 |
+| `case-only` | editorial | 61 |
+| `typographic-convention` | editorial | 43 |
+| `negation-change` | material | 16 |
+| `modal-change` | material | 10 |
+| `cross-reference-renumber` | editorial | 4 |
+| *(none — undecided)* | — | 222 |
+
+**Context is part of the reconstruction.** `[3.4]` → `3.5` is a threshold change or a cross-reference
+renumbering depending entirely on whether "section" precedes it — a word outside the edit spans.
+Reconstructing only the edits made that rule unable to fire; found by test, not inspection. Sixty
+characters of context on each side, clipped to the containing section, fixed it and lifted coverage
+from 75.1% to 78.8%. Context is safe for equivalence rules because it appears identically on both
+sides and so can never manufacture a difference.
+
+**Two findings from measuring real output:**
+
+- **Spelled-out numbers were invisible.** `"" → "ten"` and `"" → "fifteen"` were landing in
+  `undecided` purely because the digit regex could not see them, though they are exactly as material
+  as `10 → 15`. Legal drafting writes "within ten (10) Business Days". Adding word-numbers lifted
+  coverage from 71.3% to 75.1%.
+- **`defined-term change` was evaluated and deliberately not implemented**, despite being listed
+  above. It fires on genuinely ambiguous cases (`"" → "Standard"`, a renaming rather than an
+  obligation change), and almost any sizeable addition contains a capitalised term. A rule that is
+  merely probably right belongs in the model tier where its output is confidence-scored and escalable
+  — not here, where it would be reported as deterministic fact. `days` → `Business Days` therefore
+  stays `undecided` on purpose.
+
+### Static HTML report
+
+Emitted from this phase onward, so every later phase is visually demonstrable without waiting for the
+web app: `npm run analyze -- 2024-06563 out/report`. Renders the funnel, the material changes with
+deletions struck through and additions highlighted in context, each with its rule and citation — and
+**the filtered remainder, expandable**, because a filter the reader cannot inspect is one they cannot
+trust.
+
+**Result:** 24 Phase 5 tests, 205 total.
+
+**Risk retired:** whether deterministic rules carry the majority of the volume. **They do — 60–79%,
+measured, with the remainder honestly routed to judgement.**
 
 ---
 

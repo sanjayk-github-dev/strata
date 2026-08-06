@@ -14,9 +14,10 @@ that constrain implementation choices.
 
 ## Current state
 
-**Phases 1–4 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
-document model, citation verifier, determination blocks (T2), and redline extraction (T3).
-166 tests passing. Phases 5–8 not started — no materiality classification, no web app yet.
+**Phases 1–5 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
+document model, citation verifier, determination blocks (T2), redline extraction (T3), rule-tier
+materiality, and a static HTML report. 205 tests passing. Phases 6–8 not started — no model-tier
+classification, no join, no web app yet.
 
 ## Commands
 
@@ -24,7 +25,8 @@ document model, citation verifier, determination blocks (T2), and redline extrac
 npm install
 npm run analyze -- RM22-14          # pipeline only: version timeline + per-document analysis
 npm run analyze -- 2024-06563       # a single document; FR URLs also accepted
-npm test                            # all tests (166)
+npm run analyze -- 2024-06563 out/report   # …and write a static HTML review report
+npm test                            # all tests (205)
 npx vitest run tests/ingest.test.ts # a single test file
 npx vitest run -t "monotonic"       # a single test by name
 npm run typecheck
@@ -127,9 +129,14 @@ status, never whether a given provision is settled.
 
 ### Materiality is the actual problem
 
-Of several hundred parsed edits, most are editorial (`[the]`, `[A]a`, italicized `i.e.,`) and a few
-dozen carry legal effect. Separating them is the core intelligence task. Fixtures for both classes live
-under `fixtures:` in the manifest — a classifier must get those right first.
+Measured on Order 2023-A: of 1,431 parsed edits, 924 are editorial (750 are a bare `[the]`), 204 carry
+legal effect, and 303 need judgement. Separating them is the core intelligence task.
+
+**Rules must be certain, not usually right.** They classify *groups* (a `[A]`+`a` pair is only
+recognisable as capitalisation when seen together) by reconstructing before/after and testing
+**equivalence** — far stronger than matching edit text. A rule that is merely probably right belongs
+in the model tier where it is confidence-scored and escalable; `defined-term change` was evaluated and
+left out on exactly those grounds. Anything undecided goes to Phase 6, never to a default.
 
 Note that a change is a **disposition**, not a text diff: text is reworded with zero legal effect
 (*affirmed*), and barely touched with large effect (*modified*). Expert readings of the same provision
@@ -148,6 +155,8 @@ legitimately differ, so surface disagreement rather than resolving it silently.
 | `src/pipeline/card.ts` | ChangeCard assembly: provision status and confidence derivation |
 | `src/pipeline/determinations.ts` | T2 branch — decision blocks and provision cross-references |
 | `src/pipeline/redline.ts` | T3 branch — region bounds, edit extraction, adjacency grouping |
+| `src/pipeline/materiality.ts` | Rule tier — before/after reconstruction, editorial vs material |
+| `src/report/html.ts` | Static review report; renders the funnel and the filtered remainder |
 | `data/manifest.yaml` | Verification set: 7 documents with measured tiers, counts, redline fixtures |
 | `scripts/verify_manifest.py` | Data-drift guard against the live API (pending TS port) |
 

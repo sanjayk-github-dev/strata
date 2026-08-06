@@ -12,6 +12,9 @@ __pycache__/
 # Scoped to the cache dir on purpose — small XML test fixtures should be committed.
 data/cache/
 
+# Generated reports
+out/
+
 # Node
 node_modules/
 dist/
