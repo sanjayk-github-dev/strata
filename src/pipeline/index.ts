@@ -36,6 +36,15 @@ export {
   type CrossRefStats,
 } from "./determinations.js";
 export {
+  extractRedline,
+  findRedlineRegion,
+  groupAdjacentEdits,
+  type EditGroup,
+  type RedlineDiagnostics,
+  type RedlineExtraction,
+  type RedlineRegion,
+} from "./redline.js";
+export {
   deriveConfidence,
   deriveProvisionStatus,
   requiresEscalation,

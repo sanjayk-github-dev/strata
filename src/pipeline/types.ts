@@ -70,12 +70,33 @@ export interface CapabilityNote {
   reason: string;
 }
 
+/**
+ * Structural markup needed by the redline branch, captured during parsing.
+ *
+ * Compact and purpose-built rather than the whole element tree: redline extraction needs
+ * italic spans, footnote spans, and the body bounds, and nothing else.
+ */
+export interface Markup {
+  /** `<E T="03">` spans. Italics inside footnotes are typography, never additions. */
+  italics: Array<{ span: [number, number]; inFootnote: boolean }>;
+  /** Footnote spans — brackets inside them are citations, not deletions. */
+  footnotes: Array<[number, number]>;
+  /**
+   * Bounds of `<SUPLINF>`, the document body.
+   *
+   * Excludes the Federal Register footer, which is literally `[FR Doc. 2024-06563 Filed
+   * 4-15-24; 8:45 am]` — a bracket pair that would otherwise parse as a deletion.
+   */
+  bodySpan: [number, number];
+}
+
 export interface ParsedDocument {
   meta: DocumentMeta;
   /** Plain text of the document. Every span in this object indexes into this string. */
   text: string;
   sections: Section[];
   paragraphs: Paragraph[];
+  markup: Markup;
   capabilities: Tier[];
   capabilityNotes: CapabilityNote[];
   /** Registry entry that matched, or null when the agency is unrecognised (T1 only). */
@@ -164,10 +185,12 @@ export interface Edit {
   id: string;
   sectionId: string;
   kind: "addition" | "deletion";
+  /** The changed text itself — for a deletion, the bracket contents without brackets. */
   text: string;
   citation: Citation;
   materiality: Materiality;
-  decidedBy: "rule" | "model";
+  /** Absent until something has decided. Phase 4 emits edits as `undecided`. */
+  decidedBy?: "rule" | "model";
   ruleId?: string;
 }
 

@@ -6,6 +6,7 @@ import { findConvention } from "./registry.js";
 import type {
   CapabilityNote,
   DocumentMeta,
+  Markup,
   Paragraph,
   ParsedDocument,
   Section,
@@ -235,10 +236,41 @@ export function countDeterminations(
   return n;
 }
 
+/**
+ * Capture the structural markup the redline branch needs (T3), compactly.
+ *
+ * `bodySpan` is the `<SUPLINF>` element rather than the whole document: the Federal
+ * Register footer is literally `[FR Doc. 2024-06563 Filed 4-15-24; 8:45 am]`, a bracket
+ * pair that would otherwise be extracted as a deletion.
+ */
+function buildMarkup(text: string, elements: ElementSpan[]): Markup {
+  const footnotes: Array<[number, number]> = [];
+  const italics: Markup["italics"] = [];
+
+  for (const el of elements) {
+    if (el.tag === "FTNT") footnotes.push([el.span[0], el.span[1]]);
+    else if (el.tag === "E" && el.attrs["T"] === "03") {
+      italics.push({
+        span: [el.span[0], el.span[1]],
+        // Italics inside footnotes are typography — case names, URLs — never additions.
+        inFootnote: el.ancestors.includes("FTNT"),
+      });
+    }
+  }
+
+  const suplinf = elements.find((el) => el.tag === "SUPLINF");
+  const bodySpan: [number, number] = suplinf
+    ? [suplinf.span[0], suplinf.span[1]]
+    : [0, text.length];
+
+  return { italics, footnotes, bodySpan };
+}
+
 export function buildDocument(meta: DocumentMeta, xml: string): ParsedDocument {
   const { text, elements } = parseFrXml(xml);
   const convention = findConvention(meta);
   const sections = buildSections(text, elements);
+  const markup = buildMarkup(text, elements);
 
   const paragraphs = convention
     ? buildParagraphs(text, elements, sections, convention.paragraphNumbering.pattern)
@@ -258,6 +290,7 @@ export function buildDocument(meta: DocumentMeta, xml: string): ParsedDocument {
     text,
     sections,
     paragraphs,
+    markup,
     capabilities,
     capabilityNotes: notes,
     conventionId: convention?.id ?? null,

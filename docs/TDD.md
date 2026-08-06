@@ -550,6 +550,50 @@ references per document.
 
 That fourth gate is the one that matters most: it asserts the resilience policy directly.
 
+### Region bounds — three findings that changed the design
+
+**1. The declaring *section* is the wrong scope.** The XML marks nested appendices
+(`Appendix 1 to LGIP`) at the same heading level as document-level ones (`Appendix C: …`), so a
+top-level appendix section closes at its first nested sibling — spans of 259, 181, 180 characters.
+`<EXTRACT>` is no better: it is fragmented, and in Order No. 2023 no EXTRACT contains the legend at
+all. **The region is `[first legend declaration, end of <SUPLINF>)`** — which matches how the
+declaration reads, since a note saying "deletions are in brackets" governs what follows. Order No.
+2023-A declares once across four redlined appendices; Order No. 2023 declares in each of four. The
+same rule covers both.
+
+**2. The region must end at `<SUPLINF>`, not the document.** The Federal Register footer is literally
+`[FR Doc. 2024-06563 Filed 4-15-24; 8:45 am]` — a bracket pair that would otherwise be extracted as a
+deletion on every document.
+
+**3. No length cap on deletions.** A 300-character cap silently truncated real content: **33
+deletions across the two documents exceed it**, the longest running to ~2,800 characters.
+
+### Exclusions
+
+| Excluded | Why | Count (2023-A / 2023) |
+|---|---|---|
+| Italics inside `<FTNT>` | Typography — case names, OASIS URLs — never additions | 25 / 157 |
+| Brackets inside `<FTNT>` | Citations, not deletions | 0 / 19 |
+| Unmatched brackets | Reported, never silently dropped (**I1**) | 0 / 7 |
+
+**A limitation worth stating:** italic-by-typographic-convention is *indistinguishable* from
+italic-as-addition. `i.e.,`, `e.g.,` and `et seq.` are conventionally italicised in legal prose and
+are extracted as additions. This is by design — the markup genuinely does not distinguish them — and
+Phase 5's `italicisation-only` editorial rule is what absorbs them.
+
+### Adjacency grouping
+
+A deletion followed by the addition replacing it is one logical change, and materiality can only be
+judged on the pair: `[A]` + `a` is a capitalisation fix, while `a[n]` + `non-refundable` changes what
+a fee is. **Adjacency is measured in non-whitespace characters** — the source carries XML indentation,
+so roughly 25 raw characters separate that pair, and a raw-distance threshold splits it.
+
+**Measured:** Order No. 2023-A → 1,431 edits (502 additions, 929 deletions) in 1,262 logical groups.
+Order No. 2023 → 1,715 edits (1,225 / 490) in 746 groups.
+
+**Result:** 28 Phase 4 tests, 166 total. Every edit's citation verifies; all are emitted `undecided`
+with no `decidedBy`, since nothing has classified them yet.
+
 **Risk retired:** silent misparsing — the worst available failure mode.
 
 ---

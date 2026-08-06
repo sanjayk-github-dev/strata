@@ -14,9 +14,9 @@ that constrain implementation choices.
 
 ## Current state
 
-**Phases 1–3 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
-document model, citation model + verifier, and determination-block extraction with cross-references.
-138 tests passing. Phases 4–8 not started — no redline parsing, no classification, no web app yet.
+**Phases 1–4 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
+document model, citation verifier, determination blocks (T2), and redline extraction (T3).
+166 tests passing. Phases 5–8 not started — no materiality classification, no web app yet.
 
 ## Commands
 
@@ -24,7 +24,7 @@ document model, citation model + verifier, and determination-block extraction wi
 npm install
 npm run analyze -- RM22-14          # pipeline only: version timeline + per-document analysis
 npm run analyze -- 2024-06563       # a single document; FR URLs also accepted
-npm test                            # all tests (138)
+npm test                            # all tests (166)
 npx vitest run tests/ingest.test.ts # a single test file
 npx vitest run -t "monotonic"       # a single test by name
 npm run typecheck
@@ -63,8 +63,13 @@ brackets and additions are in italics":
 | `[text]` | literal brackets | deletion |
 | plain | — | unchanged |
 
-**This convention is only valid inside appendix regions** — brackets carry ordinary meaning in the
-preamble. Detect appendix boundaries first (`<HD SOURCE="HD1">Appendix C: …</HD>`), then parse.
+**The convention only holds inside the declared region**, which is
+`[first legend declaration, end of <SUPLINF>)`. Do not scope to the declaring *section*: the XML marks
+nested appendices at the same heading level as document-level ones, so `Appendix C` closes at its
+first nested sibling (spans of ~200 chars). Ending at `<SUPLINF>` rather than the document excludes
+the Federal Register footer, which is itself a bracket pair. Outside the region, brackets and italics
+carry ordinary meaning — the preamble quotes marked-up tariff text, and Order No. 1920 has thousands
+of italics with no legend at all.
 
 Consequence: **change detection is deterministic.** Do not build a semantic differ or ask a model what
 changed. Parse the markup.
@@ -142,6 +147,7 @@ legitimately differ, so surface disagreement rather than resolving it silently.
 | `src/pipeline/citation.ts` | **The trust keystone** — verification, quote location, display gate |
 | `src/pipeline/card.ts` | ChangeCard assembly: provision status and confidence derivation |
 | `src/pipeline/determinations.ts` | T2 branch — decision blocks and provision cross-references |
+| `src/pipeline/redline.ts` | T3 branch — region bounds, edit extraction, adjacency grouping |
 | `data/manifest.yaml` | Verification set: 7 documents with measured tiers, counts, redline fixtures |
 | `scripts/verify_manifest.py` | Data-drift guard against the live API (pending TS port) |
 

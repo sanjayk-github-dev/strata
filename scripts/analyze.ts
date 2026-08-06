@@ -13,7 +13,9 @@ import {
   citeParagraph,
   crossRefStats,
   extractDeterminations,
+  extractRedline,
   gateClaims,
+  groupAdjacentEdits,
   resolveVersions,
   UnsupportedSourceError,
   type Claim,
@@ -79,6 +81,24 @@ function summarize(doc: ParsedDocument): void {
       );
     }
     if (dets.length > 3) console.log(`      … ${dets.length - 3} more`);
+  }
+
+  // T3 — redline. Deterministic: the agency published the markup, we parse it.
+  const rl = extractRedline(doc);
+  if (rl.region) {
+    const groups = groupAdjacentEdits(doc, rl.edits);
+    const d = rl.diagnostics;
+    console.log(
+      `  redline: ${rl.edits.length} edits ` +
+        `(${d.additions} additions, ${d.deletions} deletions) → ${groups.length} logical changes`,
+    );
+    console.log(
+      `      excluded: ${d.italicsInFootnotes} footnote italics, ` +
+        `${d.bracketsInFootnotes} footnote brackets · unmatched brackets: ${d.unmatchedBrackets}`,
+    );
+    console.log(`      all edits classified: undecided (materiality is Phase 5)`);
+  } else if (rl.unavailableReason) {
+    console.log(`  redline: unavailable — ${rl.unavailableReason.split(".")[0]}.`);
   }
 }
 
