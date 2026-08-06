@@ -24,7 +24,7 @@ document model, citation model + verifier, and determination-block extraction wi
 npm install
 npm run analyze -- RM22-14          # pipeline only: version timeline + per-document analysis
 npm run analyze -- 2024-06563       # a single document; FR URLs also accepted
-npm test                            # all tests (69)
+npm test                            # all tests (138)
 npx vitest run tests/ingest.test.ts # a single test file
 npx vitest run -t "monotonic"       # a single test by name
 npm run typecheck
@@ -41,8 +41,12 @@ API. It still works but should be ported to TypeScript — the project is otherw
 ### Data source
 
 Everything is retrieved from the **Federal Register public API** — no authentication, no scraping, no
-PDF parsing, no OCR. `data/manifest.yaml` is the single source of truth; ingestion reads it rather than
-hardcoding document numbers. Adding a proceeding is a YAML edit.
+PDF parsing, no OCR. Input is **any** federal docket identifier, FR document number, or
+federalregister.gov URL; the pipeline is not restricted to a fixed list.
+
+**`data/manifest.yaml` is not in the runtime path.** It is the verification set — seven documents with
+measured capability tiers, paragraph counts, and redline fixtures — used by tests and as the CI
+regression baseline. Ingestion reads none of it.
 
 - Metadata: `https://www.federalregister.gov/api/v1/documents/{doc_number}.json`
 - Full text: `https://www.federalregister.gov/documents/full_text/xml/{y}/{m}/{d}/{doc_number}.xml`
