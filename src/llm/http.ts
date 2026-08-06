@@ -46,20 +46,38 @@ export class HttpLlmClient implements LlmClient {
     this.label = `${hostOf(this.baseUrl)}/${opts.model}`;
   }
 
+  /**
+   * Retry policy.
+   *
+   * Rate limits are expected rather than exceptional on free and low tiers — Groq's free
+   * tier for an 8B model is 6,000 tokens per minute, which a handful of long prompts
+   * exhausts. Giving up after a few seconds turns a transient limit into lost work that
+   * is then indistinguishable from a genuine judgement of ambiguity.
+   *
+   * So: honour `retry-after` when the provider sends it, and for 429 specifically allow
+   * waiting out a rolling token window rather than backing off a fixed few seconds.
+   * Providers report `retry-after: 1` even when the window needs longer to roll, so the
+   * backoff floor rises with each attempt regardless.
+   */
   async complete(req: LlmRequest): Promise<LlmResponse> {
-    const maxRetries = this.opts.maxRetries ?? 3;
+    const maxRetries = this.opts.maxRetries ?? 5;
     let lastError: unknown;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      if (attempt > 0) await sleep(Math.min(500 * 2 ** (attempt - 1), 8000));
       try {
         return await this.once(req);
       } catch (err) {
         lastError = err;
-        const retriable =
-          err instanceof LlmError &&
-          (err.status === 429 || (err.status !== undefined && err.status >= 500));
-        if (!retriable) throw err;
+        const status = err instanceof LlmError ? err.status : undefined;
+        const retriable = status === 429 || (status !== undefined && status >= 500);
+        if (!retriable || attempt === maxRetries) throw err;
+
+        const hinted = err instanceof LlmError ? err.retryAfterMs : undefined;
+        const backoff =
+          status === 429
+            ? Math.min(4000 * 2 ** attempt, 45_000) // wait out a rolling TPM window
+            : Math.min(500 * 2 ** attempt, 8_000);
+        await sleep(Math.max(hinted ?? 0, backoff));
       }
     }
     throw lastError;
@@ -94,10 +112,13 @@ export class HttpLlmClient implements LlmClient {
 
       const raw = await res.text();
       if (!res.ok) {
+        const header = res.headers.get("retry-after");
+        const retryAfterMs = header ? Number(header) * 1000 : undefined;
         throw new LlmError(
           `${this.label} returned ${res.status} ${res.statusText}`,
           res.status,
           raw.slice(0, 500),
+          Number.isFinite(retryAfterMs) ? retryAfterMs : undefined,
         );
       }
 

@@ -42,6 +42,8 @@ export class LlmError extends Error {
     message: string,
     readonly status?: number,
     readonly body?: string,
+    /** From the provider's `retry-after` header, when present. */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = "LlmError";

@@ -78,12 +78,14 @@ async function main(): Promise<void> {
 
     const tally: Record<string, number> = {};
     let escalated = 0;
+    let incidents = 0;
 
     for (const det of sample) {
       const r = await classifyDisposition(doc, det, llm);
       const d = r.determination.disposition;
       tally[d] = (tally[d] ?? 0) + 1;
       if (r.escalated) escalated++;
+      if (r.escalationReason === "provider-error") incidents++;
 
       const status = deriveProvisionStatus(doc.meta.status, d);
       const flag = r.escalated ? "⚠" : "✓";
@@ -97,7 +99,14 @@ async function main(): Promise<void> {
       .sort((a, b) => b[1] - a[1])
       .map(([k, v]) => `${k} ${v}`)
       .join(" · ");
-    console.log(`    → ${summary}  ·  ${escalated} escalated\n`);
+    console.log(`    → ${summary}  ·  ${escalated} escalated`);
+    if (incidents > 0) {
+      console.log(
+        `    ⚠ ${incidents} block(s) were NEVER ANALYSED — the provider call failed. ` +
+          `This is an outage, not a judgement.`,
+      );
+    }
+    console.log();
   }
 
   // ---- T3: residual materiality ----------------------------------------
@@ -112,10 +121,14 @@ async function main(): Promise<void> {
 
     const out = await classifyResiduals(doc, m.groups, llm, { limit });
     const tally: Record<string, number> = {};
+    const byReason: Record<string, number> = {};
     let escalated = 0;
     for (const r of out) {
       tally[r.materiality] = (tally[r.materiality] ?? 0) + 1;
       if (r.escalated) escalated++;
+      if (r.escalationReason !== "none") {
+        byReason[r.escalationReason] = (byReason[r.escalationReason] ?? 0) + 1;
+      }
     }
 
     for (const r of out.filter((x) => x.materiality === "material").slice(0, 6)) {
@@ -131,6 +144,18 @@ async function main(): Promise<void> {
       .map(([k, v]) => `${k} ${v}`)
       .join(" · ");
     console.log(`    → ${summary}  ·  ${escalated} escalated`);
+    const reasons = Object.entries(byReason)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${k} ${v}`)
+      .join(" · ");
+    if (reasons) console.log(`      escalation reasons: ${reasons}`);
+    const never = byReason["provider-error"] ?? 0;
+    if (never > 0) {
+      console.log(
+        `    ⚠ ${never} group(s) were NEVER ANALYSED — the provider call failed. ` +
+          `This is an outage, not a judgement.`,
+      );
+    }
 
     // Combined funnel: rules first, model on the remainder.
     const f = m.funnel;

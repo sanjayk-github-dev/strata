@@ -778,6 +778,42 @@ escalates rather than being trusted.
 recordings by design. A cassette miss during replay is an error, never a silent live call — a test
 that quietly hits the network is one that fails differently on someone else's machine.
 
+### Measured against a live provider (Groq, `llama-3.1-8b-instant`)
+
+Dispositions on Order No. 2023-A, 8 blocks: **6 grounded in verified quotes**, 2 escalated as
+ungrounded. Labels: clarified 3, sustained 2, modified 2, set-aside 1. The grounding is real — the
+model located passages that the verifier then confirmed byte-for-byte against source:
+
+> *"Accordingly, we set aside this aspect of Order No. 2023"* → `set-aside` → `reopened`
+> *"we modify 3.1.1.1 as follows to clarify the applicable study deposits"* → `modified` → `adopted`
+
+Residual materiality, 40 groups: editorial 22, clarifying 11, **material 7**. One of the material
+findings is an independent corroboration worth recording — the model flagged
+`letter of credit, [or] cash` → `+ a surety bond`, which is exactly the change Troutman Pepper's
+published analysis of this order identified as a modification ("allowed surety bonds and other
+reasonably acceptable forms beyond cash and letters of credit"). The pipeline reached a major law
+firm's conclusion from source, with a citation.
+
+### Three findings from running it live
+
+**1. Rate limits are a first-class failure mode, not an edge case.** Groq's free tier for this model
+is **6,000 tokens per minute**. Eight disposition calls at ~1,500 prompt tokens each exhaust it, and
+the original retry policy (3 attempts, ≤8s backoff) gave up long before a rolling token window
+reopens. The result was **40 of 40 residual groups reported as escalated** — work silently lost.
+Fixed by honouring `retry-after` and backing off up to 45s on 429 specifically.
+
+**2. A provider outage must not look like a judgement.** This is the more important fix. "The model
+judged this ambiguous" is the product working; "the provider rate-limited us" is an incident. Both
+previously surfaced as a bare escalation count, so a reviewer had no way to tell that a third of the
+document was **never analysed**. Escalations now carry a reason — `ambiguous`, `ungrounded`,
+`invalid-output`, `omitted`, `provider-error` — and the CLI calls out never-analysed items explicitly.
+
+**3. Confidence-based escalation is only as good as the model's calibration.** The 8B model returned
+`confidence: 1.0` on all 40 residual judgements, so the low-confidence escalation path never fired.
+Small models are not calibrated, and a threshold on self-reported confidence quietly becomes a no-op.
+The grounding check (does a supporting quote verify?) is the more robust signal, because it is
+checked rather than self-reported — which is the whole architectural bet, restated.
+
 ---
 
 ### Phase 7 — Join and assembled cards

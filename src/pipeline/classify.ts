@@ -22,7 +22,23 @@ import type {
   Materiality,
   ParsedDocument,
 } from "./types.js";
-import type { LlmClient } from "../llm/types.js";
+import { LlmError, type LlmClient } from "../llm/types.js";
+
+/**
+ * Why an item was escalated.
+ *
+ * The distinction matters more than it looks. "The model judged this ambiguous" is the
+ * product working — escalate rather than guess. "The provider rate-limited us" is an
+ * incident. Reporting both as a bare escalation count hides an outage behind a feature,
+ * and a reviewer would have no way to tell that half the document was never analysed.
+ */
+export type EscalationReason =
+  | "none"
+  | "ambiguous"
+  | "ungrounded"
+  | "invalid-output"
+  | "omitted"
+  | "provider-error";
 
 const DISPOSITIONS: readonly Disposition[] = [
   "affirmed",
@@ -87,6 +103,7 @@ export interface ClassifiedDetermination {
   determination: Determination;
   confidence: Confidence;
   escalated: boolean;
+  escalationReason: EscalationReason;
   /** Present when the model's supporting quote verified against source. */
   supportingQuote?: string;
   reason: string;
@@ -109,10 +126,15 @@ export async function classifyDisposition(
       user: `Heading: ${determination.headingPath.slice(-3).join(" > ")}\n\n---\n${body}\n---`,
     });
     parsed = extractJson(res.text);
-  } catch {
-    // A provider failure must not take down the pipeline; it escalates like any other
-    // case the model could not settle.
-    return unclassified(determination, "Model call failed; requires expert review.");
+  } catch (err) {
+    // A provider failure must not take down the pipeline — but it is reported as an
+    // incident, not as a judgement of ambiguity.
+    const detail = err instanceof LlmError ? ` (${err.message})` : "";
+    return unclassified(
+      determination,
+      `Provider call failed${detail}; this block was never analysed.`,
+      "provider-error",
+    );
   }
 
   const obj = (parsed ?? {}) as Record<string, unknown>;
@@ -126,6 +148,7 @@ export async function classifyDisposition(
       raw === "unclear"
         ? "The model found no passage clearly stating a disposition."
         : `Model returned an unrecognised disposition (${JSON.stringify(raw).slice(0, 40)}).`,
+      raw === "unclear" ? "ambiguous" : "invalid-output",
     );
   }
 
@@ -154,6 +177,7 @@ export async function classifyDisposition(
     determination: { ...determination, disposition, citation },
     confidence,
     escalated: escalated || !grounded,
+    escalationReason: !grounded ? "ungrounded" : escalated ? "ambiguous" : "none",
     ...(grounded ? { supportingQuote: citation.quote } : {}),
     reason: grounded
       ? `Disposition "${disposition}", grounded in a verified passage.`
@@ -161,11 +185,16 @@ export async function classifyDisposition(
   };
 }
 
-function unclassified(determination: Determination, reason: string): ClassifiedDetermination {
+function unclassified(
+  determination: Determination,
+  reason: string,
+  escalationReason: EscalationReason,
+): ClassifiedDetermination {
   return {
     determination: { ...determination, disposition: "unclassified" },
     confidence: "low",
     escalated: true,
+    escalationReason,
     reason,
   };
 }
@@ -192,6 +221,7 @@ export interface ClassifiedResidual {
   materiality: Materiality;
   confidence: Confidence;
   escalated: boolean;
+  escalationReason: EscalationReason;
   reason: string;
 }
 
@@ -216,10 +246,10 @@ export async function classifyResiduals(
 
   for (let i = 0; i < selected.length; i += batchSize) {
     const batch = selected.slice(i, i + batchSize);
-    const settled = await classifyBatch(batch, llm);
+    const outcome = await classifyBatch(batch, llm);
 
     batch.forEach((group, k) => {
-      const r = settled.get(k);
+      const r = outcome.results.get(k);
       if (!r) {
         // Conservation (I1): an item the model omitted stays undecided and escalates.
         // It is never dropped and never defaulted.
@@ -228,7 +258,10 @@ export async function classifyResiduals(
           materiality: "undecided",
           confidence: "low",
           escalated: true,
-          reason: "The model returned no judgement for this item.",
+          escalationReason: outcome.providerError ? "provider-error" : "omitted",
+          reason: outcome.providerError
+            ? `Provider call failed (${outcome.providerError.slice(0, 120)}); never analysed.`
+            : "The model returned no judgement for this item.",
         });
         return;
       }
@@ -239,10 +272,16 @@ export async function classifyResiduals(
   return out;
 }
 
+interface BatchOutcome {
+  results: Map<number, Omit<ClassifiedResidual, "group">>;
+  /** Set when the call itself failed — the batch was never analysed. */
+  providerError?: string;
+}
+
 async function classifyBatch(
   batch: readonly ClassifiedGroup[],
   llm: LlmClient,
-): Promise<Map<number, Omit<ClassifiedResidual, "group">>> {
+): Promise<BatchOutcome> {
   const results = new Map<number, Omit<ClassifiedResidual, "group">>();
 
   const items = batch
@@ -262,8 +301,11 @@ async function classifyBatch(
       user: items,
     });
     parsed = extractJson(res.text);
-  } catch {
-    return results; // whole batch stays undecided; caller escalates each
+  } catch (err) {
+    // The batch was never analysed. Reported as an incident so it is not mistaken for a
+    // judgement that these items are ambiguous.
+    const detail = err instanceof LlmError ? err.message : String(err);
+    return { results, providerError: detail };
   }
 
   const container = (parsed ?? {}) as Record<string, unknown>;
@@ -288,6 +330,7 @@ async function classifyBatch(
         materiality: "undecided",
         confidence: "low",
         escalated: true,
+        escalationReason: "invalid-output",
         reason: `Model returned an unrecognised label (${JSON.stringify(rawLabel).slice(0, 40)}).`,
       });
       continue;
@@ -298,9 +341,10 @@ async function classifyBatch(
       materiality: label,
       confidence,
       escalated,
+      escalationReason: escalated ? "ambiguous" : "none",
       reason: reason || `Model classified this as ${label}.`,
     });
   }
 
-  return results;
+  return { results };
 }
