@@ -1,0 +1,22 @@
+# Local context, not part of the project
+build-challenge.txt
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Cached source documents (multi-MB; re-fetchable from the Federal Register API).
+# Scoped to the cache dir on purpose — small XML test fixtures should be committed.
+data/cache/
+
+# Node
+node_modules/
+dist/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

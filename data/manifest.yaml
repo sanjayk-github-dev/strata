@@ -1,0 +1,132 @@
+# Strata — source dataset manifest
+#
+# All documents are retrieved from the Federal Register public API.
+# No authentication, no scraping, no PDF parsing, no OCR.
+#
+#   metadata:  https://www.federalregister.gov/api/v1/documents/{doc_number}.json
+#   full text: https://www.federalregister.gov/documents/full_text/xml/{yyyy}/{mm}/{dd}/{doc_number}.xml
+#
+# Every doc_number below was verified to resolve on 2026-08-05.
+# Regenerate/verify with: scripts/verify_manifest.py
+
+api:
+  metadata_base: https://www.federalregister.gov/api/v1/documents
+  fulltext_xml_pattern: https://www.federalregister.gov/documents/full_text/xml/{y}/{m}/{d}/{doc_number}.xml
+  docket_query: https://www.federalregister.gov/api/v1/documents.json?conditions[docket_id]={docket}
+
+# Deterministic document-level status mapping, keyed on the API's `action` field.
+# Provision-level status is a separate, inferred problem — this only classifies the document.
+status_map:
+  "Notice of proposed rulemaking.": proposed
+  "Final rule.": final
+  "Final order.": final
+  "Order on rehearing and clarification.": amended
+
+proceedings:
+
+  # ---------------------------------------------------------------- PRIMARY
+  - id: RM22-14
+    agency: FERC
+    title: Improvements to Generator Interconnection Procedures and Agreements
+    role: primary
+    why: >
+      Governs the pro forma interconnection procedures and agreements that bind every
+      generation project in an RTO/ISO queue. Three published versions spanning proposed →
+      final → amended, with machine-readable redlines in the appendices.
+    redline_convention:
+      note_text: "Deletions are in brackets and additions are in italics."
+      addition: '<E T="03">…</E>'
+      deletion: "[…]"
+      scope: appendix regions only  # brackets carry ordinary meaning in the preamble
+    versions:
+      - doc_number: 2022-13470
+        label: NOPR
+        docket_id: Docket No. RM22-14-000
+        publication_date: 2022-07-05
+        fr_type: Proposed Rule
+        action: Notice of proposed rulemaking.
+        status: proposed
+        page_length: 99
+      - doc_number: 2023-16628
+        label: Order No. 2023
+        docket_id: Docket No. RM22-14-000
+        publication_date: 2023-09-06
+        fr_type: Rule
+        action: Final rule.
+        status: final
+        page_length: 336
+      - doc_number: 2024-06563
+        label: Order No. 2023-A
+        docket_id: Docket No. RM22-14-001
+        publication_date: 2024-04-16
+        fr_type: Rule
+        action: Order on rehearing and clarification.
+        status: amended
+        page_length: 238
+        effective_on: 2024-05-16
+        cfr_references: [18 CFR Part 35]
+        # Measured directly from the XML (tags stripped):
+        measured:
+          total_words: 250331
+          preamble_words: 135543
+          appendix_words: 114788
+          numbered_paragraphs: 723
+          determination_headings: 31
+        appendices:
+          - {id: A, title: "Abbreviated Names of Rehearing Parties", redlined: false}
+          - {id: B, title: "Interconnection Study Metrics", redlined: false}
+          - {id: C, title: "Changes to the Pro Forma LGIP", redlined: true}
+          - {id: D, title: "Changes to the Pro Forma LGIA", redlined: true}
+          - {id: E, title: "Changes to the Pro Forma SGIP", redlined: true}
+          - {id: F, title: "Changes to the Pro Forma SGIA", redlined: true}
+
+  # -------------------------------------------------------------- SECONDARY
+  # Same parser, zero new ingestion code. Use as a generality smoke-test:
+  # if the pipeline runs clean on RM21-17 without changes, the parser is not
+  # overfit to a single document.
+  - id: RM21-17
+    agency: FERC
+    title: Building for the Future Through Electric Regional Transmission Planning and Cost Allocation
+    role: secondary
+    versions:
+      - {doc_number: 2022-08973, label: NOPR,             docket_id: Docket No. RM21-17-000, publication_date: 2022-05-04, fr_type: Proposed Rule, action: Notice of proposed rulemaking.,        status: proposed, page_length: 108}
+      - {doc_number: 2024-10872, label: Order No. 1920,   docket_id: Docket No. RM21-17-000, publication_date: 2024-06-11, fr_type: Rule,          action: Final order.,                          status: final,    page_length: 307}
+      - {doc_number: 2024-27982, label: Order No. 1920-A, docket_id: Docket No. RM21-17-001, publication_date: 2024-12-06, fr_type: Rule,          action: Order on rehearing and clarification., status: amended,  page_length: 181}
+      - {doc_number: 2025-06941, label: Order No. 1920-B, docket_id: Docket No. RM21-17-003, publication_date: 2025-04-28, fr_type: Rule,          action: Order on rehearing and clarification., status: amended,  page_length: 37}
+
+# ---------------------------------------------------------------------------
+# Known-good fixtures for tests. Each is a verified edit from Order 2023-A,
+# Appendix C, LGIP section 3.1.1.1 (XML line ~18238).
+fixtures:
+  material_edits:
+    - section: "3.1.1.1"
+      raw: 'a[n] <E T="03">non-refundable</E> application fee of $5,000'
+      deletion: "n"
+      addition: "non-refundable"
+      expected_class: material
+      rationale: application fee changed from refundable-by-omission to expressly non-refundable
+    - section: "3.1.1.1"
+      raw: '(a) $35,000 plus $1,000 per MW for Interconnection Requests [≥ 20 MW] &lt; 80 MW'
+      deletion: "≥ 20 MW"
+      addition: null
+      expected_class: material
+      rationale: lower bound removed from deposit tier, changing which requests it covers
+  editorial_edits:
+    - {raw: 'Network Resource Interconnection Service [A]<E T="03">a</E>llows', expected_class: editorial, rationale: capitalization}
+    - {raw: 'Appendix C of [the] Interconnection Customer''s LGIA',            expected_class: editorial, rationale: article removal}
+    - {raw: '<E T="03">i.e.,</E>',                                             expected_class: editorial, rationale: italicization only}
+
+# Disposition vocabulary observed in the Order 2023-A preamble (raw phrase counts,
+# including mid-argument usage). Useful as a prior — NOT sufficient as a classifier.
+# Note the zeros: FERC never writes "grant/deny rehearing".
+disposition_priors:
+  we disagree: 65
+  we are not persuaded: 28
+  we clarify: 27
+  we sustain: 14
+  we agree: 14
+  we decline: 13
+  we set aside: 4
+  we affirm: 2
+  we grant rehearing: 0
+  we deny rehearing: 0
