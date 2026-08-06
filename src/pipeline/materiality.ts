@@ -125,8 +125,18 @@ const NUMBERS = /\$?\d[\d,]*(?:\.\d+)?\s*(?:%|MW|kW|kV|days?|business days?|mont
 const NUMBER_WORDS =
   /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\b/gi;
 
-/** A number acting as a cross-reference rather than a threshold. */
-const CROSSREF_NUMBER = /\b(?:section|sections|appendix|article|attachment|part)\s+\d[\d.]*/gi;
+/**
+ * A number acting as a cross-reference rather than a threshold.
+ *
+ * The number pattern tolerates internal whitespace, which is not cosmetic. When a
+ * renumbering is marked up as `Section 9.[6] 7`, reconstruction yields "Section 9.6" for
+ * before and "Section 9. 7" for after — the space is XML layout between the deletion and
+ * its replacement, not content. Without this tolerance the two sides mask differently,
+ * the cross-reference rule fails to fire, and a pure renumbering is reported as a
+ * material numeric change. That was the first card in the generated report.
+ */
+const CROSSREF_NUMBER =
+  /\b(?:section|sections|appendix|article|attachment|part)\s+\d(?:\s*[.\d])*/gi;
 
 const NEGATION = /\b(?:not|no|nor|never|non)\b|\bnon-/gi;
 
@@ -136,6 +146,39 @@ function multiset(s: string, re: RegExp): string[] {
 
 const sameMultiset = (a: string[], b: string[]) =>
   a.length === b.length && a.every((x, i) => x === b[i]);
+
+const WORD_VALUES: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8,
+  nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30,
+  forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  hundred: 100, thousand: 1000,
+};
+
+/**
+ * The set of numeric *values* a text mentions, digits and words unified.
+ *
+ * A set rather than a multiset, and values rather than surface forms, because legal
+ * drafting states the same number twice: "within ten (10) Business Days". Adding the
+ * word form beside an existing digit changes the drafting, not the deadline — and a
+ * multiset comparison of surface forms reported exactly that as a material change in the
+ * generated report.
+ */
+function numericValues(s: string): Set<number> {
+  const out = new Set<number>();
+  for (const m of s.matchAll(new RegExp(NUMBERS.source, NUMBERS.flags))) {
+    const n = Number(m[0].replace(/[^0-9.]/g, ""));
+    if (Number.isFinite(n) && m[0].trim() !== "") out.add(n);
+  }
+  for (const m of s.matchAll(new RegExp(NUMBER_WORDS.source, NUMBER_WORDS.flags))) {
+    const v = WORD_VALUES[m[0].toLowerCase()];
+    if (v !== undefined) out.add(v);
+  }
+  return out;
+}
+
+const sameValues = (a: Set<number>, b: Set<number>) =>
+  a.size === b.size && [...a].every((x) => b.has(x));
 
 // ---------------------------------------------------------------------------
 // Rules
@@ -235,10 +278,7 @@ const MATERIAL_RULES: MaterialityRule[] = [
       // Mask cross-references first: renumbering is editorial and is handled above.
       const b = before.replace(CROSSREF_NUMBER, "§REF");
       const a = after.replace(CROSSREF_NUMBER, "§REF");
-      return (
-        !sameMultiset(multiset(b, NUMBERS), multiset(a, NUMBERS)) ||
-        !sameMultiset(multiset(b, NUMBER_WORDS), multiset(a, NUMBER_WORDS))
-      );
+      return !sameValues(numericValues(b), numericValues(a));
     },
   },
 ];

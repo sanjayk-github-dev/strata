@@ -621,10 +621,10 @@ The open question this phase existed to answer.
 
 | Document | Edits | Groups | Material | Editorial | Undecided | **Rule coverage** |
 |---|---|---|---|---|---|---|
-| Order No. 2023-A | 1,431 | 1,262 | 204 | 924 | 303 | **78.8%** |
+| Order No. 2023-A | 1,431 | 1,262 | 68 | 927 | 436 | **69.5%** |
 | Order No. 2023 | 1,715 | 746 | 941 | 99 | 675 | **60.6%** |
 
-Rules decided the majority, and a real remainder — 303 and 675 edits — genuinely needs judgement. That
+Rules decided the majority, and a real remainder — 436 and 675 edits — genuinely needs judgement. That
 is the two-tier design working as intended rather than a shortfall: those go to Phase 6 confidence-scored
 and escalable, not defaulted to a classification.
 
@@ -644,13 +644,13 @@ text, because it cannot be fooled by an edit that merely looks trivial.
 | Rule | Class | Fired (2023-A) |
 |---|---|---|
 | `article-only` | editorial | 750 |
-| `numeric-change` | material | 156 |
 | `case-only` | editorial | 61 |
 | `typographic-convention` | editorial | 43 |
+| `numeric-change` | material | 27 |
 | `negation-change` | material | 16 |
 | `modal-change` | material | 10 |
-| `cross-reference-renumber` | editorial | 4 |
-| *(none — undecided)* | — | 222 |
+| `cross-reference-renumber` | editorial | 73 |
+| *(none — undecided)* | — | 282 |
 
 **Context is part of the reconstruction.** `[3.4]` → `3.5` is a threshold change or a cross-reference
 renumbering depending entirely on whether "section" precedes it — a word outside the edit spans.
@@ -682,8 +682,29 @@ trust.
 
 **Result:** 24 Phase 5 tests, 205 total.
 
-**Risk retired:** whether deterministic rules carry the majority of the volume. **They do — 60–79%,
-measured, with the remainder honestly routed to judgement.**
+### Two false positives found by reading the generated report
+
+Both were visible in the rendered output and invisible in the aggregate numbers, which is the argument
+for emitting the report this phase rather than at the end.
+
+- **Whitespace at the edit boundary broke cross-reference detection.** `Section 9.[6] 7` reconstructs
+  to `Section 9.6` / `Section 9. 7` — the space is XML layout between a deletion and its replacement,
+  not content. The cross-reference pattern could not match a number with a space inside it, so a pure
+  renumbering was reported as a material numeric change. It was the *first card in the report*.
+- **Restating a number in words was counted as a change.** `within ⟦+ten⟧ (10) Business Days` adds the
+  word form beside an existing digit: the drafting changed, the deadline did not. Comparing surface
+  forms as a multiset flagged it; comparing numeric **values as a set** does not.
+
+The second correction is significant — material fell from 201 to 68 and coverage from 78.8% to 69.5%.
+Nothing was lost: those groups moved to `undecided`, so they still surface for review. The rule tier
+simply stopped asserting confidence it had not earned, which is the trade the design asks for.
+
+**Known limitation — moves are reported as two changes.** A definition relocated within a section
+appears as a deletion in one place and an addition in another, with no link between them. Move
+detection is deferred; the pair is surfaced, not lost.
+
+**Risk retired:** whether deterministic rules carry the majority of the volume. **They do — roughly
+60–70%, measured, with the remainder honestly routed to judgement.**
 
 ---
 

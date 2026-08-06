@@ -93,6 +93,19 @@ describe("editorial rules — equivalence tests", () => {
     expect(result.ruleId).toBe("typographic-convention");
   });
 
+  it("cross-reference renumbering survives whitespace at the edit boundary", () => {
+    // Regression. Marked up as "Section 9.[6] 7", reconstruction yields "Section 9.6"
+    // and "Section 9. 7" — the space is XML layout between a deletion and its
+    // replacement, not content. Without whitespace tolerance in the cross-reference
+    // pattern the two sides mask differently and a pure renumbering is reported as a
+    // material numeric change. This was the first card in the generated report.
+    const { result } = classifyOne(
+      'issued pursuant to Section 9.[6] <E T="03">7</E> of this LGIP.',
+    );
+    expect(result.materiality).toBe("editorial");
+    expect(result.ruleId).toBe("cross-reference-renumber");
+  });
+
   it("cross-reference renumbering is editorial, not a numeric change", () => {
     // This is the one place the numeric rule must NOT fire: the obligation pointed to is
     // unchanged, only its label moved.
@@ -125,6 +138,15 @@ describe("material rules — narrow and certain", () => {
     const { result } = classifyOne('a fee of [$5,000]<E T="03">$10,000</E> payable.');
     expect(result.materiality).toBe("material");
     expect(result.ruleId).toBe("numeric-change");
+  });
+
+  it("restating a number in words is NOT a numeric change", () => {
+    // Regression. Legal drafting states the same number twice — "within ten (10)
+    // Business Days". Adding the word form beside an existing digit changes the
+    // drafting, not the deadline. Comparing surface forms reported this as material in
+    // the generated report; comparing values does not.
+    const { result } = classifyOne('or within <E T="03">ten</E> (10) Business Days of filing.');
+    expect(result.materiality).not.toBe("material");
   });
 
   it("spelled-out numbers count as numeric changes", () => {
