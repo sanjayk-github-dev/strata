@@ -41,6 +41,18 @@ export class HttpLlmClient implements LlmClient {
   private readonly baseUrl: string;
   readonly label: string;
 
+  /**
+   * Set once a model rejects an explicit `temperature`.
+   *
+   * Newer reasoning-style models accept only their default temperature and return 400 for
+   * any explicit value — including 0, which is exactly what a classifier wants. Rather
+   * than requiring per-model configuration, the client detects the rejection and drops
+   * the parameter for subsequent calls. This is the class of breakage that appears the
+   * moment the same code is pointed at a different model, which is why it is handled here
+   * rather than pushed onto callers.
+   */
+  private sendTemperature = true;
+
   constructor(private readonly opts: HttpLlmOptions) {
     this.baseUrl = (opts.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.label = `${hostOf(this.baseUrl)}/${opts.model}`;
@@ -69,6 +81,14 @@ export class HttpLlmClient implements LlmClient {
       } catch (err) {
         lastError = err;
         const status = err instanceof LlmError ? err.status : undefined;
+
+        // A model that rejects an explicit temperature: drop it and retry immediately.
+        // Costs one wasted call per client, once.
+        if (this.sendTemperature && isTemperatureRejection(err)) {
+          this.sendTemperature = false;
+          continue;
+        }
+
         const retriable = status === 429 || (status !== undefined && status >= 500);
         if (!retriable || attempt === maxRetries) throw err;
 
@@ -98,7 +118,7 @@ export class HttpLlmClient implements LlmClient {
         },
         body: JSON.stringify({
           model: this.opts.model,
-          temperature: req.temperature ?? 0,
+          ...(this.sendTemperature ? { temperature: req.temperature ?? 0 } : {}),
           ...(req.maxTokens ? { max_tokens: req.maxTokens } : {}),
           // Widely supported; providers that ignore it still work, because output is
           // parsed and validated on our side regardless.
@@ -155,6 +175,18 @@ export class HttpLlmClient implements LlmClient {
       clearTimeout(timer);
     }
   }
+}
+
+/**
+ * Does this error say the model refuses an explicit temperature?
+ *
+ * Matched on the error body rather than a model allowlist: allowlists go stale with every
+ * model release, and the provider already tells us precisely what it objected to.
+ */
+function isTemperatureRejection(err: unknown): boolean {
+  if (!(err instanceof LlmError) || err.status !== 400) return false;
+  const body = (err.body ?? "").toLowerCase();
+  return body.includes("temperature") && (body.includes("unsupported") || body.includes("not support"));
 }
 
 function hostOf(url: string): string {

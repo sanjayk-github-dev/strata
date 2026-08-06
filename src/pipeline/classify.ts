@@ -232,6 +232,81 @@ export interface ResidualOptions {
   limit?: number;
 }
 
+/**
+ * Measure agreement between the rule tier and the model on groups the rules already
+ * decided.
+ *
+ * A quality signal that needs no labelled data. The rules are certain by construction, so
+ * on this overlap the model should agree; systematic disagreement means one tier is
+ * wrong, and which one is worth knowing before trusting the model on the cases where
+ * only it has an opinion.
+ *
+ * This exists because self-reported confidence turned out not to be a usable escalation
+ * signal — measured across providers it is inflated and never crosses a sane threshold,
+ * so it silently becomes a no-op.
+ */
+export interface AgreementReport {
+  sampled: number;
+  agreed: number;
+  disagreed: number;
+  /** Model gave no usable answer for these; excluded from the rate. */
+  unanswered: number;
+  agreementRate: number;
+  examples: Array<{ ruleId: string; rule: Materiality; model: Materiality; before: string; after: string }>;
+}
+
+export async function measureAgreement(
+  doc: ParsedDocument,
+  groups: readonly ClassifiedGroup[],
+  llm: LlmClient,
+  sampleSize = 20,
+): Promise<AgreementReport> {
+  const decided = groups.filter((g) => g.result.materiality !== "undecided");
+  // Spread the sample across the document rather than taking a contiguous head, which
+  // would over-represent whichever rule dominates the opening sections.
+  const step = Math.max(1, Math.floor(decided.length / sampleSize));
+  const sample: ClassifiedGroup[] = [];
+  for (let i = 0; i < decided.length && sample.length < sampleSize; i += step) {
+    sample.push(decided[i]!);
+  }
+
+  const outcome = await classifyBatch(sample, llm);
+  const report: AgreementReport = {
+    sampled: sample.length,
+    agreed: 0,
+    disagreed: 0,
+    unanswered: 0,
+    agreementRate: 0,
+    examples: [],
+  };
+
+  sample.forEach((g, k) => {
+    const r = outcome.results.get(k);
+    if (!r || r.materiality === "undecided") {
+      report.unanswered++;
+      return;
+    }
+    if (r.materiality === g.result.materiality) {
+      report.agreed++;
+    } else {
+      report.disagreed++;
+      if (report.examples.length < 6) {
+        report.examples.push({
+          ruleId: g.result.ruleId,
+          rule: g.result.materiality,
+          model: r.materiality,
+          before: g.beforeAfter.before.replace(/\s+/g, " ").trim().slice(0, 60),
+          after: g.beforeAfter.after.replace(/\s+/g, " ").trim().slice(0, 60),
+        });
+      }
+    }
+  });
+
+  const answered = report.agreed + report.disagreed;
+  report.agreementRate = answered === 0 ? 0 : report.agreed / answered;
+  return report;
+}
+
 export async function classifyResiduals(
   doc: ParsedDocument,
   groups: readonly ClassifiedGroup[],

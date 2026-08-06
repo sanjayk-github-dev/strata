@@ -149,6 +149,17 @@ describe("material rules — narrow and certain", () => {
     expect(result.materiality).not.toBe("material");
   });
 
+  it("a hyphenated compound is ONE value, not two", () => {
+    // Found by the rule/model agreement check: "exceeding 25 percent" → "exceeding
+    // twenty-five percent" was classified material because "twenty-five" parsed as 20
+    // and 5 rather than 25, so the value set appeared to change when only the spelling
+    // had. The model disagreed with the rule and was right.
+    const { result } = classifyOne(
+      'exceeding [25]<E T="03">twenty-five</E> percent of the total.',
+    );
+    expect(result.materiality).not.toBe("material");
+  });
+
   it("spelled-out numbers count as numeric changes", () => {
     // Found by measuring real output: "" → "ten" and "" → "fifteen" were landing in
     // undecided purely because the digit regex could not see them, though they are

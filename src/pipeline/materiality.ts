@@ -122,8 +122,22 @@ const NUMBERS = /\$?\d[\d,]*(?:\.\d+)?\s*(?:%|MW|kW|kV|days?|business days?|mont
  * landing in `undecided` purely because the digit regex could not see them, even though
  * they are exactly as material as "10" → "15".
  */
-const NUMBER_WORDS =
-  /\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\b/gi;
+const ONES =
+  "zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen";
+const TENS = "twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety";
+
+/**
+ * Hyphenated compounds are matched as one token.
+ *
+ * Found by the rule/model agreement check: "exceeding 25 percent" → "exceeding
+ * twenty-five percent" was classified material, because "twenty-five" parsed as two
+ * separate words worth 20 and 5 rather than one value of 25 — so the value set appeared
+ * to change when only the spelling had. The model disagreed and was right.
+ */
+const NUMBER_WORDS = new RegExp(
+  `\\b(?:(?:${TENS})-(?:${ONES})|${TENS}|${ONES}|hundred|thousand)\\b`,
+  "gi",
+);
 
 /**
  * A number acting as a cross-reference rather than a threshold.
@@ -171,10 +185,22 @@ function numericValues(s: string): Set<number> {
     if (Number.isFinite(n) && m[0].trim() !== "") out.add(n);
   }
   for (const m of s.matchAll(new RegExp(NUMBER_WORDS.source, NUMBER_WORDS.flags))) {
-    const v = WORD_VALUES[m[0].toLowerCase()];
+    const v = wordValue(m[0]);
     if (v !== undefined) out.add(v);
   }
   return out;
+}
+
+/** Resolve a word-number token, including hyphenated compounds like "twenty-five". */
+function wordValue(token: string): number | undefined {
+  const t = token.toLowerCase();
+  const direct = WORD_VALUES[t];
+  if (direct !== undefined) return direct;
+  const [tens, ones] = t.split("-");
+  if (!tens || !ones) return undefined;
+  const a = WORD_VALUES[tens];
+  const b = WORD_VALUES[ones];
+  return a !== undefined && b !== undefined ? a + b : undefined;
 }
 
 const sameValues = (a: Set<number>, b: Set<number>) =>

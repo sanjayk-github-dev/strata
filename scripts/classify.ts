@@ -27,6 +27,7 @@ import {
   classifyEdits,
   classifyResiduals,
   deriveProvisionStatus,
+  measureAgreement,
   extractDeterminations,
   extractRedline,
 } from "../src/pipeline/index.js";
@@ -155,6 +156,19 @@ async function main(): Promise<void> {
         `    ⚠ ${never} group(s) were NEVER ANALYSED — the provider call failed. ` +
           `This is an outage, not a judgement.`,
       );
+    }
+
+    // Rule/model agreement on an overlap sample — a quality signal needing no labels.
+    const agree = await measureAgreement(doc, m.groups, llm, 20);
+    console.log(
+      `\n  Rule/model agreement: ${agree.agreed}/${agree.agreed + agree.disagreed} ` +
+        `(${(agree.agreementRate * 100).toFixed(0)}%)` +
+        (agree.unanswered ? ` · ${agree.unanswered} unanswered` : ""),
+    );
+    for (const e of agree.examples.slice(0, 4)) {
+      console.log(`      rule=${e.rule}/${e.ruleId} vs model=${e.model}`);
+      console.log(`        − ${e.before}`);
+      console.log(`        + ${e.after}`);
     }
 
     // Combined funnel: rules first, model on the remainder.

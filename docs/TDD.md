@@ -794,6 +794,32 @@ published analysis of this order identified as a modification ("allowed surety b
 reasonably acceptable forms beyond cash and letters of credit"). The pipeline reached a major law
 firm's conclusion from source, with a citation.
 
+### Provider comparison, same document and prompts
+
+| | Groq `llama-3.1-8b-instant` | OpenAI `gpt-5.6-luna` |
+|---|---|---|
+| Dispositions grounded in a verified quote | 6 / 8 | **7 / 8** |
+| Residual material found (of 40) | 7 | **12** |
+| Rule/model agreement on overlap | — | **90%** (18/20) |
+| Reason quality | terse — *"Changed type of agreement"* | specific — *"Changes an unspecified fifteen-day period to fifteen Business Days"* |
+| Self-reported confidence | uniform `1.0` | 0.88–0.99, 6 distinct values |
+| Latency per call | ~0.4s | ~2.7s |
+| Wall clock, same run | 61s (rate-limit backoff) | 36s |
+
+**The stronger model resolved the case the rule tier deliberately declined.** Phase 5 left
+`days` → `Business Days` as `undecided` because a general defined-term rule would have been merely
+probably right. The model classified it material with the reason *"Changes an unspecified fifteen-day
+period to fifteen Business Days"*. That is the two-tier design working end to end: the rule tier
+declines, the model tier resolves, and neither guesses.
+
+### Portability found a real breakage
+
+`gpt-5.6-luna` **rejects an explicit `temperature`**, accepting only its default — returning 400 for
+`temperature: 0`, which is exactly what a classifier wants. This is the class of failure that appears
+the moment the same code is pointed at a different model, so the client detects the rejection from the
+error body and drops the parameter for subsequent calls. Matched on the provider's own message rather
+than a model allowlist, since allowlists go stale with every release.
+
 ### Three findings from running it live
 
 **1. Rate limits are a first-class failure mode, not an edge case.** Groq's free tier for this model
@@ -808,11 +834,28 @@ previously surfaced as a bare escalation count, so a reviewer had no way to tell
 document was **never analysed**. Escalations now carry a reason — `ambiguous`, `ungrounded`,
 `invalid-output`, `omitted`, `provider-error` — and the CLI calls out never-analysed items explicitly.
 
-**3. Confidence-based escalation is only as good as the model's calibration.** The 8B model returned
-`confidence: 1.0` on all 40 residual judgements, so the low-confidence escalation path never fired.
-Small models are not calibrated, and a threshold on self-reported confidence quietly becomes a no-op.
-The grounding check (does a supporting quote verify?) is the more robust signal, because it is
-checked rather than self-reported — which is the whole architectural bet, restated.
+**3. Self-reported confidence is not a usable escalation signal.** The 8B model returned
+`confidence: 1.0` on all 40 residual judgements. The stronger model did vary — 0.88 to 0.99 across six
+distinct values — but **never dropped below the 0.7 threshold**, so the low-confidence path never fired
+on either. Confidence is systematically inflated, and a threshold on it quietly becomes a no-op.
+
+The two signals that *are* robust are both checked rather than self-reported:
+
+- **Grounding** — does the model's supporting quote verify against source? This is the architectural
+  bet restated, and it is what separates the 7 usable dispositions from the 1 escalated.
+- **Rule/model agreement** on an overlap sample, which needs no labelled data. Measured at **90%**.
+
+### The agreement gate found a bug in the rule tier
+
+Its first run disagreed on `exceeding 25 percent` → `exceeding twenty-five percent`: the rule said
+material, the model said editorial. **The model was right.** `twenty-five` was parsing as two tokens
+worth 20 and 5 rather than one value of 25, so the value set appeared to change when only the spelling
+had. Fixed — hyphenated compounds are now one token — and agreement rose from 85% to 90%.
+
+This is the argument for the gate in one example: a check that needs no ground truth still located a
+false positive in the deterministic tier. The two remaining disagreements are both cases where the
+model prefers `clarifying` to the rule's label, and both readings are defensible — which is the PRD's
+"interpretation is genuinely contested" showing up in the measurements.
 
 ---
 

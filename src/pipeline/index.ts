@@ -57,6 +57,8 @@ export {
 export {
   classifyDisposition,
   classifyResiduals,
+  measureAgreement,
+  type AgreementReport,
   extractJson,
   type ClassifiedDetermination,
   type ClassifiedResidual,
