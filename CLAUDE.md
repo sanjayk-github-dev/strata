@@ -14,20 +14,27 @@ that constrain implementation choices.
 
 ## Current state
 
-PRD written; source dataset locked and verified. **The pipeline itself is not built yet.**
-
-This is **not a git repository**. Run `git init` before writing code — commit history is part of this
-project's record and commits should not be squashed.
+**Phase 1 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
+document model with sections/paragraphs/spans. 69 tests passing. Phases 2–8 not started — no citation
+verifier, no redline extraction, no classification, no web app yet.
 
 ## Commands
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install pyyaml   # first-time setup
-.venv/bin/python scripts/verify_manifest.py             # verify dataset against live API (7/7)
+npm install
+npm run analyze -- RM22-14          # pipeline only: version timeline + per-document analysis
+npm run analyze -- 2024-06563       # a single document; FR URLs also accepted
+npm test                            # all tests (69)
+npx vitest run tests/ingest.test.ts # a single test file
+npx vitest run -t "monotonic"       # a single test by name
+npm run typecheck
 ```
 
-Build and test commands do not exist yet. Add them here as they land, along with how to run a single
-test — they are the entry point for anyone verifying this repo.
+First test run fetches ~15 MB of source XML from the Federal Register API and caches it to
+`data/cache/` (gitignored); later runs are offline and fast.
+
+`scripts/verify_manifest.py` is a leftover Python utility that checks the manifest against the live
+API. It still works but should be ported to TypeScript — the project is otherwise single-language.
 
 ## Architecture
 
@@ -113,8 +120,15 @@ legitimately differ, so surface disagreement rather than resolving it silently.
 | Path | Purpose |
 |---|---|
 | `docs/PRD.md` | Persona, scope boundary, product principles, functional requirements, metrics |
-| `data/manifest.yaml` | Dataset spec, redline convention, status map, disposition priors, test fixtures |
-| `scripts/verify_manifest.py` | Data-drift guard against the live API |
+| `docs/TDD.md` | Architecture, capability tiers, invariants, phased delivery plan with test gates |
+| `src/pipeline/registry.ts` | Agency conventions as data. **Start here when adding an agency** |
+| `src/pipeline/document.ts` | Section/paragraph construction, capability detection |
+| `src/pipeline/xml.ts` | FR XML → plain text with element spans |
+| `data/manifest.yaml` | Verification set: 7 documents with measured tiers, counts, redline fixtures |
+| `scripts/verify_manifest.py` | Data-drift guard against the live API (pending TS port) |
+
+**The pipeline (`src/pipeline/**`) must stay free of framework imports.** The web app and CLI are thin
+callers; if Next.js or Vercel APIs leak in, local runs and tests stop reflecting production.
 
 ## Constraints worth knowing
 

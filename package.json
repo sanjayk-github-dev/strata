@@ -1,0 +1,25 @@
+{
+  "name": "strata",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Citation-grade regulatory change-intelligence workspace",
+  "scripts": {
+    "analyze": "tsx scripts/analyze.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "sax": "^1.4.1"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.14.0",
+    "@types/sax": "^1.2.7",
+    "js-yaml": "^4.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

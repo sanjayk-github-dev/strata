@@ -65,13 +65,14 @@ proceedings:
         page_length: 238
         effective_on: 2024-05-16
         cfr_references: [18 CFR Part 35]
-        # Measured directly from the XML (tags stripped):
+        # Measured by the implemented parser (scripts/analyze.ts), not by design-time greps.
         measured:
-          total_words: 250331
+          total_words: 250331          # tags-stripped word count
           preamble_words: 135543
           appendix_words: 114788
-          numbered_paragraphs: 723
-          determination_headings: 31
+          body_paragraphs: 683         # contiguous 1..683; invariant I3
+          separate_opinion_paragraphs: 10
+          determination_headings: 31   # trimmed heading text, anchored /Determination$/
         appendices:
           - {id: A, title: "Abbreviated Names of Rehearing Parties", redlined: false}
           - {id: B, title: "Interconnection Study Metrics", redlined: false}
@@ -115,6 +116,29 @@ fixtures:
     - {raw: 'Network Resource Interconnection Service [A]<E T="03">a</E>llows', expected_class: editorial, rationale: capitalization}
     - {raw: 'Appendix C of [the] Interconnection Customer''s LGIA',            expected_class: editorial, rationale: article removal}
     - {raw: '<E T="03">i.e.,</E>',                                             expected_class: editorial, rationale: italicization only}
+
+# Capability tiers per document, measured by the implemented parser.
+# This table is the regression guard for the arbitrary-URL promise: it asserts both
+# that available tiers run and that unavailable ones are declined, never approximated.
+# Asserted in tests/ingest.test.ts.
+capabilities:
+  2022-13470: [T1]              # NOPR — proposes, does not determine; no redline legend
+  2023-16628: [T1, T2, T3]      # 47 determinations, legend in 4 appendices
+  2024-06563: [T1, T2, T3]      # 31 determinations, legend in 1 appendix
+  2022-08973: [T1]              # NOPR
+  2024-10872: [T1, T2]          # 66 determinations; pro forma text present but unmarked
+  2024-27982: [T1, T2]          # 75 determinations
+  2025-06941: [T1, T2]          # 11 determinations
+
+# Body paragraph counts, each a contiguous 1..N sequence (invariant I3).
+body_paragraphs:
+  2022-13470: 370
+  2023-16628: 1785
+  2024-06563: 683
+  2022-08973: 465
+  2024-10872: 1792
+  2024-27982: 956
+  2025-06941: 158
 
 # Disposition vocabulary observed in the Order 2023-A preamble (raw phrase counts,
 # including mid-argument usage). Useful as a prior — NOT sufficient as a classifier.

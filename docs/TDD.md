@@ -135,8 +135,8 @@ Three rules make this structural rather than cosmetic:
    their expected counts. The registry is configuration, documentation, and test fixture at once.
 
 **`matches` selects by agency, never by document type.** An earlier draft matched
-`agency === "FERC" && type === "Rule"` — wrong, because the RM22-14 NOPR carries **432 numbered
-paragraphs** that citations must anchor into. Narrowing the convention to Rules would leave proposed
+`agency === "FERC" && type === "Rule"` — wrong, because the RM22-14 NOPR carries **370 numbered
+paragraphs** (measured) that citations must anchor into. Narrowing the convention to Rules would leave proposed
 rules with no structure at all. The convention matches the agency broadly; each capability inside it
 (determinations, redline) already declines gracefully on documents where its own precondition fails.
 This is the preconditions-per-capability principle applied consistently.
@@ -365,9 +365,10 @@ confident status.
 | **I2** | **Verification gate** — a claim whose citation fails is *suppressed*, not downgraded | Failed verification is a rejected claim, not a low-confidence one |
 | **I3** | **Completeness** — extracted paragraph numbering is contiguous from 1 to N | A gap means the parser missed content. Converts silent omission into a test failure, with no labeled data required |
 
-I3 is available because agency paragraph numbering is gapless in practice — verified on Order No.
-2023-A, which runs 1..683 with zero missing values. The redline supplies a second self-check: it encodes
-both before and after text, so both can be reconstructed and checked for well-formedness.
+I3 is available because agency paragraph numbering is gapless in practice — **verified across all seven
+documents in the verification set**, each yielding a contiguous 1..N body sequence once separate
+opinions are excluded (they restart at 1). The redline supplies a second self-check: it encodes both
+before and after text, so both can be reconstructed and checked for well-formedness.
 
 ---
 
@@ -396,13 +397,32 @@ registry with the FERC entry; capability detection; deterministic status from `a
 | Section identity carries nesting depth; `Appendix C` ≠ `Appendix C to LGIA` | exact |
 | Unknown agency yields T1 only, without error | exact |
 
-**Also required to close this phase — correcting known-wrong committed baselines:**
+**Baseline corrections — done, from measured parser output:**
 
-| Location | Currently | Action |
+| Location | Was | Now |
 |---|---|---|
-| `data/manifest.yaml` `numbered_paragraphs` | `723` | Correct to measured value (**683**). The 723 came from a regex over-matching numbered lists and separately-numbered concurrences by ~6% |
-| `docs/PRD.md` §2.2 | "723 numbered paragraphs" | Same correction — **683** |
-| `docs/PRD.md` §6, principle 3 | "Surfacing 21 changes from 683 … the other 662" | **Illustrative figures, never measured** (and the 683 collides coincidentally with the true paragraph count). Replace with real funnel output |
+| `data/manifest.yaml` | `numbered_paragraphs: 723` | `body_paragraphs: 683` + `separate_opinion_paragraphs: 10`. The 723 came from a regex over-matching appendix lists and separately-numbered concurrences |
+| `docs/PRD.md` §2.2 | "723 numbered paragraphs" | **683** |
+| `docs/PRD.md` §6, principle 3 | "21 changes from 683 … the other 662" | Illustrative figures removed; wording is now shape-only until the funnel produces real counts in Phase 5 |
+| `data/manifest.yaml` | *(absent)* | Added measured `capabilities` and `body_paragraphs` tables for all 7 documents |
+
+**Measured baselines established this phase** (all body sequences contiguous from 1 — invariant I3):
+
+| Document | Body ¶¶ | Separate opinions | Determinations | Tiers |
+|---|---|---|---|---|
+| NOPR RM22-14 (2022-13470) | 370 | 0 | 0 | T1 |
+| Order No. 2023 (2023-16628) | 1,785 | 0 | 47 | T1 T2 T3 |
+| Order No. 2023-A (2024-06563) | **683** | 10 | 31 | T1 T2 T3 |
+| NOPR RM21-17 (2022-08973) | 465 | 0 | 0 | T1 |
+| Order No. 1920 (2024-10872) | 1,792 | 0 | 66 | T1 T2 |
+| Order No. 1920-A (2024-27982) | 956 | 13 | 75 | T1 T2 |
+| Order No. 1920-B (2025-06941) | 158 | 0 | 11 | T1 T2 |
+
+**Paragraph-scope rule, as implemented and validated across all seven documents:** `<P>` elements
+whose immediate parent is `<SUPLINF>`, matched on `/^\s*(\d{1,4})\.\s/`, taking the **monotonic
+prefix**. The scope excludes footnote paragraphs and appendix numbered lists; the monotonic prefix
+separates the main body from concurrences, which restart numbering at 1. Every document yields a
+contiguous sequence under this rule — I3 is a general invariant, not a single-document coincidence.
 
 **Risk retired:** every assumption about XML structure, and the assumption that conventions generalise.
 
