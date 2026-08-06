@@ -13,10 +13,12 @@
 import { describe, expect, it } from "vitest";
 
 import { StubLlmClient, cassetteKey } from "../src/llm/index.js";
+import type { LlmClient } from "../src/llm/index.js";
 import {
   classifyDisposition,
   classifyEdits,
   classifyResiduals,
+  measureAgreement,
   deriveProvisionStatus,
   extractDeterminations,
   extractJson,
@@ -280,6 +282,145 @@ describe("residual materiality", () => {
     const out = await classifyResiduals(d, decided, llm);
     expect(out).toHaveLength(0);
     expect(llm.callCount).toBe(0); // nothing to ask about
+  });
+});
+
+describe("invariant I2 — every emitted claim carries a citation that verifies", () => {
+  it("holds across the full range of model behaviour", async () => {
+    // Property test over the outcomes the model can produce: a grounded quote, a
+    // fabricated one, an invalid label, malformed output, and a provider failure. In
+    // every case the determination that comes back must carry a citation that verifies —
+    // either narrowed to the model's quote, or falling back to the code-supplied block.
+    const d = await doc(DOCS.order2023A);
+    const dets = extractDeterminations(d).slice(0, 5);
+    const real = d.text.slice(dets[0]!.citation.span[0] + 300, dets[0]!.citation.span[0] + 420);
+
+    const behaviours = [
+      jsonOf({ disposition: "sustained", quote: real, confidence: 0.9 }),
+      jsonOf({ disposition: "affirmed", quote: "text that appears nowhere at all", confidence: 0.9 }),
+      jsonOf({ disposition: "wildly invalid", quote: "", confidence: 0.9 }),
+      "not json",
+      jsonOf({ disposition: "clarified", quote: "", confidence: 0.1 }),
+    ];
+
+    for (const det of dets) {
+      for (const behaviour of behaviours) {
+        const out = await classifyDisposition(d, det, new StubLlmClient([behaviour]));
+        const v = verifyCitation(d, out.determination.citation);
+        if (!v.ok) {
+          throw new Error(`emitted an unverifiable citation: ${v.reason} — ${v.detail}`);
+        }
+      }
+    }
+  });
+
+  it("residual classification never invents a citation", async () => {
+    // The residual path returns only a label — the citation is the edit's own, computed
+    // deterministically in Phase 4. There is nothing for the model to hallucinate a
+    // location about, and this asserts the property rather than assuming it.
+    const d = await doc(DOCS.order2023A);
+    const m = classifyEdits(d, extractRedline(d).edits);
+    const groups = m.groups.filter((g) => g.result.materiality === "undecided").slice(0, 5);
+
+    const llm = new StubLlmClient([
+      jsonOf({
+        results: groups.map((_, i) => ({
+          i,
+          materiality: "material",
+          reason: "x",
+          confidence: 0.9,
+        })),
+      }),
+    ]);
+
+    const out = await classifyResiduals(d, groups, llm, { batchSize: 10 });
+    for (const r of out) {
+      for (const edit of r.group.group.edits) {
+        expect(verifyCitation(d, edit.citation).ok).toBe(true);
+      }
+    }
+  });
+});
+
+describe("rule/model agreement", () => {
+  /** A client that labels every item with a fixed materiality. */
+  const fixed = (label: string): LlmClient => ({
+    label: "fixed",
+    complete: (req) => {
+      const n = (req.user.match(/^\d+\./gm) ?? []).length;
+      return Promise.resolve({
+        text: jsonOf({
+          results: Array.from({ length: n }, (_, i) => ({
+            i,
+            materiality: label,
+            reason: "fixed",
+            confidence: 0.9,
+          })),
+        }),
+      });
+    },
+  });
+
+  it("reports perfect agreement when the model mirrors the rules", async () => {
+    const d = await doc(DOCS.order2023A);
+    const m = classifyEdits(d, extractRedline(d).edits);
+    // Editorial dominates the rule-decided population, so a model that always says
+    // "editorial" should agree with most of the sample.
+    const report = await measureAgreement(d, m.groups, fixed("editorial"), 10);
+    expect(report.sampled).toBe(10);
+    expect(report.agreed + report.disagreed + report.unanswered).toBe(10);
+    expect(report.agreementRate).toBeGreaterThan(0.5);
+  });
+
+  it("records disagreements with both labels, for auditing", async () => {
+    const d = await doc(DOCS.order2023A);
+    const m = classifyEdits(d, extractRedline(d).edits);
+    const report = await measureAgreement(d, m.groups, fixed("clarifying"), 10);
+    // No rule ever emits "clarifying", so every answered item must disagree.
+    expect(report.agreed).toBe(0);
+    expect(report.disagreed).toBeGreaterThan(0);
+    expect(report.agreementRate).toBe(0);
+    for (const e of report.examples) {
+      expect(e.model).toBe("clarifying");
+      expect(e.rule).not.toBe("clarifying");
+      expect(e.ruleId).not.toBe("none");
+    }
+  });
+
+  it("samples only groups the rules decided — comparing to nothing proves nothing", async () => {
+    const d = await doc(DOCS.order2023A);
+    const m = classifyEdits(d, extractRedline(d).edits);
+    const report = await measureAgreement(d, m.groups, fixed("editorial"), 12);
+    // Every example's rule label must be a real decision, never "undecided".
+    for (const e of report.examples) expect(e.rule).not.toBe("undecided");
+    expect(report.sampled).toBeGreaterThan(0);
+  });
+
+  it("counts unanswered items separately from disagreements", async () => {
+    const d = await doc(DOCS.order2023A);
+    const m = classifyEdits(d, extractRedline(d).edits);
+    const silent: LlmClient = {
+      label: "silent",
+      complete: () => Promise.resolve({ text: jsonOf({ results: [] }) }),
+    };
+    const report = await measureAgreement(d, m.groups, silent, 8);
+    expect(report.unanswered).toBe(8);
+    expect(report.agreed).toBe(0);
+    expect(report.disagreed).toBe(0);
+    // An unanswered item must not be counted as agreement.
+    expect(report.agreementRate).toBe(0);
+  });
+
+  it("survives a provider outage without reporting false agreement", async () => {
+    const d = await doc(DOCS.order2023A);
+    const m = classifyEdits(d, extractRedline(d).edits);
+    const failing: LlmClient = {
+      label: "failing",
+      complete: () => Promise.reject(new Error("503")),
+    };
+    const report = await measureAgreement(d, m.groups, failing, 6);
+    expect(report.unanswered).toBe(6);
+    expect(report.agreementRate).toBe(0);
   });
 });
 

@@ -743,6 +743,12 @@ Two decisions make this cheap rather than a compromise:
 | `unclassified` disposition ⇒ `provisionStatus: 'unknown'` and `escalated: true` | exact |
 | Rule/model agreement on a deliberate overlap sample | measured |
 
+All seven gates are covered by `tests/classify.test.ts` (30 tests), except `provisionStatus`
+derivation, whose table-driven test lives with the derivation itself in `tests/citation.test.ts`.
+I2 is asserted as a **property** across the full range of model behaviour — grounded quote,
+fabricated quote, invalid label, malformed output, provider failure — because "true by
+construction" is a claim worth testing rather than assuming.
+
 Regex cannot substitute here: FERC writes *"we sustain"*, *"we clarify"*, *"we set aside"* and **never**
 "grant/deny rehearing" — zero occurrences of either. Phrase frequency is a prior, not a classifier.
 
