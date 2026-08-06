@@ -55,6 +55,14 @@ export {
   type RuleResult,
 } from "./materiality.js";
 export {
+  classifyDisposition,
+  classifyResiduals,
+  extractJson,
+  type ClassifiedDetermination,
+  type ClassifiedResidual,
+  type ResidualOptions,
+} from "./classify.js";
+export {
   deriveConfidence,
   deriveProvisionStatus,
   requiresEscalation,
@@ -79,12 +87,39 @@ export async function loadXml(
   return xml;
 }
 
+/**
+ * Fetch a document's metadata, using the cache when available.
+ *
+ * Metadata is cached alongside the XML rather than fetched every time. Without this a
+ * warm cache still made one live API call per analysis, which left the test suite
+ * network-dependent and intermittently flaky — observed as four unrelated failures in a
+ * run that passed on retry.
+ */
+export async function loadMeta(
+  frDocNumber: string,
+  opts: PipelineOptions = {},
+): Promise<DocumentMeta> {
+  const cache = opts.cache ?? new FileCache();
+  const key = `meta/${frDocNumber}`;
+  const hit = await cache.get(key);
+  if (hit !== null) {
+    try {
+      return JSON.parse(hit) as DocumentMeta;
+    } catch {
+      // Corrupt entry: fall through and re-fetch.
+    }
+  }
+  const meta = await fetchDocumentMeta(frDocNumber);
+  await cache.set(key, JSON.stringify(meta));
+  return meta;
+}
+
 /** Fetch and parse a single document into the full document model. */
 export async function analyzeDocument(
   frDocNumber: string,
   opts: PipelineOptions = {},
 ): Promise<ParsedDocument> {
-  const meta = await fetchDocumentMeta(frDocNumber);
+  const meta = await loadMeta(frDocNumber, opts);
   const xml = await loadXml(meta, opts);
   return buildDocument(meta, xml);
 }

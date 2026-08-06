@@ -12,6 +12,10 @@ __pycache__/
 # Scoped to the cache dir on purpose — small XML test fixtures should be committed.
 data/cache/
 
+# Secrets
+.env.local
+.env
+
 # Generated reports
 out/
 

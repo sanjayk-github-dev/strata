@@ -710,8 +710,26 @@ detection is deferred; the pair is surfaced, not lost.
 
 ### Phase 6 — Model-tier classification
 
-**Builds:** disposition classification (T2) and residual materiality (T3) via OpenAI, constrained to
-closed label sets. Model interactions recorded to fixtures so the suite runs deterministically offline.
+**Builds:** disposition classification (T2) and residual materiality (T3), constrained to closed label
+sets. Model interactions recorded to fixtures so the suite runs deterministically offline.
+
+### Provider-agnostic by construction
+
+Any OpenAI-compatible `/chat/completions` endpoint works — OpenAI, Groq, Together, OpenRouter, or a
+local vLLM/Ollama server — configured by three environment variables (`LLM_API_KEY`, `LLM_BASE_URL`,
+`LLM_MODEL`; `OPENAI_*` accepted as fallbacks). See `.env.example`.
+
+Two decisions make this cheap rather than a compromise:
+
+- **`fetch`, not a vendor SDK.** The surface needed is one POST to a stable, widely-implemented
+  contract. A vendor SDK imports that vendor's assumptions about endpoints, error shapes, and
+  parameters — exactly what breaks when the same code is pointed at Groq or a local server.
+- **Output validation is never delegated to the provider.** Structured-output support varies (OpenAI
+  has strict `json_schema`; several compatible providers offer only `json_object`, some neither).
+  Because the architecture validates every output against a closed label set and gates every claim on
+  citation verification regardless, provider-side schema enforcement is a convenience, not a
+  dependency. Markdown-fenced JSON and JSON embedded in prose — both common on compatible providers —
+  are tolerated by the parser.
 
 **Test:** `npx vitest run tests/classify.test.ts`
 
@@ -727,6 +745,38 @@ closed label sets. Model interactions recorded to fixtures so the suite runs det
 
 Regex cannot substitute here: FERC writes *"we sustain"*, *"we clarify"*, *"we set aside"* and **never**
 "grant/deny rehearing" — zero occurrences of either. Phrase frequency is a prior, not a classifier.
+
+### The verifier doubles as a confidence signal
+
+For dispositions the model returns a label *and* a supporting quote. The label is constrained to the
+closed set; the quote goes through `locateQuote`. If it verifies, the citation **narrows** from the
+whole block to the supporting passage. If it does not, the label is kept but the item is **escalated**
+— a model that cannot point at real text supporting its answer has not earned confidence in it. This
+is the same verifier from Phase 2 used as evidence-of-grounding rather than only as a gate.
+
+### Failure modes are the specification
+
+Twenty-three tests, nearly all asserting behaviour under bad model output, because that is what the
+architecture exists to bound:
+
+| Model does | System does |
+|---|---|
+| Returns an unrecognised label | Escalates; never coerced to the nearest valid one |
+| Returns a fabricated supporting quote | Keeps the label, escalates, falls back to the block citation |
+| Returns malformed or non-JSON output | Escalates; never throws |
+| Omits items from a batch | Those stay `undecided` and escalate — **conservation (I1)** |
+| Invents an item index | Ignored; the real item stays `undecided` |
+| Reports low confidence | Escalates |
+| Provider errors or times out | Whole batch stays `undecided`; the pipeline does not fall over |
+
+**Cost control:** residual materiality is batched (default 20 items per call), turning hundreds of
+judgements into a few dozen requests. Determination blocks run to ~36,000 characters, so a bounded
+head is sent — dispositions are stated near the top. The trade is explicit, and an ungrounded answer
+escalates rather than being trusted.
+
+**Determinism:** cassettes key on a hash of the prompt and model, so a prompt edit invalidates
+recordings by design. A cassette miss during replay is an error, never a silent live call — a test
+that quietly hits the network is one that fails differently on someone else's machine.
 
 ---
 
