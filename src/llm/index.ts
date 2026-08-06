@@ -7,6 +7,7 @@ export {
   DEFAULT_CASSETTE_DIR,
   type CassetteOptions,
 } from "./cassette.js";
+export { cachedLlmFromEnv, LLM_CACHE_DIR } from "./cache.js";
 export {
   llmFromEnv,
   resolveLlmConfig,

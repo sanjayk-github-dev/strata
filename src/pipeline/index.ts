@@ -11,6 +11,15 @@ import { enumerateDocket, fetchDocumentMeta, fetchXml, resolveInput } from "./fr
 import type { DocumentMeta, ParsedDocument } from "./types.js";
 
 export * from "./types.js";
+export {
+  DISPOSITION_LABEL,
+  JOIN_LABEL,
+  MATERIALITY_LABEL,
+  PRIORITY_LABEL,
+  PROVISION_STATUS_LABEL,
+  TIER_LABEL,
+  officialUrl,
+} from "./labels.js";
 export { bodyParagraphs, buildDocument } from "./document.js";
 export { deriveStatus, enumerateDocket, fetchDocumentMeta, resolveInput } from "./fr-api.js";
 export { findConvention, FERC_RULEMAKING } from "./registry.js";
@@ -32,6 +41,7 @@ export {
   determinationContext,
   extractCrossRefs,
   extractDeterminations,
+  extractDirectiveRefs,
   isLikelyProvisionRef,
   type CrossRefStats,
 } from "./determinations.js";

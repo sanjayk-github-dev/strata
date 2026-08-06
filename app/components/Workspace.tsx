@@ -14,6 +14,13 @@
 
 import { useCallback, useState } from "react";
 
+import {
+  DISPOSITION_LABEL,
+  JOIN_LABEL,
+  PRIORITY_LABEL,
+  PROVISION_STATUS_LABEL,
+} from "@/src/pipeline/labels";
+
 interface Version {
   frDocNumber: string;
   title: string;
@@ -21,6 +28,7 @@ interface Version {
   status: "proposed" | "final" | "amended";
   pageLength: number | null;
   type: string;
+  officialUrl: string;
 }
 
 interface CardEdit {
@@ -47,8 +55,8 @@ interface Card {
 }
 
 interface Analysis {
-  meta: { frDocNumber: string; title: string; status: string; action: string };
-  capabilities: Array<{ tier: string; available: boolean; reason: string }>;
+  meta: { frDocNumber: string; title: string; status: string; action: string; officialUrl: string };
+  capabilities: Array<{ tier: string; available: boolean; reason: string; label: string }>;
   verificationRate: number;
   funnel: { material: number; editorial: number; undecided: number; totalEdits: number; ruleCoverage: number };
   coverage: {
@@ -164,6 +172,24 @@ export default function Workspace() {
         </button>
       </form>
 
+      <div className="help">
+        Enter any of:
+        <ul>
+          <li>
+            a <b>docket number</b> — e.g. <code>RM22-14</code> (interconnection) or{" "}
+            <code>RM21-17</code> (transmission planning)
+          </li>
+          <li>
+            a <b>Federal Register document number</b> — e.g. <code>2024-06563</code>
+          </li>
+          <li>
+            a <b>federalregister.gov URL</b> for a specific document
+          </li>
+        </ul>
+        Works for any federal agency that publishes to the Federal Register, not only FERC.
+        eLibrary and state commission links are not supported — those are not published there.
+      </div>
+
       {error && (
         <div className="panel err" style={{ whiteSpace: "pre-wrap" }}>
           {error}
@@ -180,6 +206,7 @@ export default function Workspace() {
                 <th>Document</th>
                 <th>Pages</th>
                 <th>Title</th>
+                <th>Source</th>
               </tr>
             </thead>
             <tbody>
@@ -195,14 +222,25 @@ export default function Workspace() {
                     <td><span className="badge">{v.status}</span></td>
                     <td>{v.frDocNumber}</td>
                     <td>{v.pageLength ?? "—"}</td>
-                    <td>{v.title.slice(0, 60)}</td>
+                    <td>{v.title.slice(0, 52)}</td>
+                    <td>
+                      <a
+                        href={v.officialUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Official ↗
+                      </a>
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
           <div className="sub" style={{ margin: ".6rem 0 0" }}>
-            Select a rule document to analyse. Notices carry no analysable structure.
+            Select a rule or proposed rule to analyse. Procedural notices carry no
+            analysable structure. “Official ↗” opens the document on federalregister.gov.
           </div>
         </div>
       )}
@@ -237,25 +275,32 @@ function Result({
   return (
     <>
       <div className="panel">
+        <h2 style={{ fontSize: "1rem", margin: "0 0 .2rem" }}>{analysis.meta.title}</h2>
+        <div className="sub" style={{ margin: "0 0 .8rem" }}>
+          {analysis.meta.frDocNumber} · {analysis.meta.action}{" "}
+          <a href={analysis.meta.officialUrl} target="_blank" rel="noreferrer">
+            View official document ↗
+          </a>
+        </div>
         <div className="stats">
           <div className="stat"><b>{(verificationRate * 100).toFixed(1)}%</b><span>citations verified</span></div>
           <div className="stat"><b>{coverage.determinations}</b><span>determinations</span></div>
-          <div className="stat"><b>{funnel.totalEdits}</b><span>redline edits</span></div>
-          <div className="stat"><b>{(funnel.ruleCoverage * 100).toFixed(0)}%</b><span>decided by rule</span></div>
-          <div className="stat"><b>{coverage.totalCards}</b><span>cards</span></div>
+          <div className="stat"><b>{funnel.totalEdits}</b><span>text changes</span></div>
+          <div className="stat"><b>{(funnel.ruleCoverage * 100).toFixed(0)}%</b><span>auto-classified</span></div>
+          <div className="stat"><b>{coverage.totalCards}</b><span>changes to review</span></div>
         </div>
         <div className="sub" style={{ margin: ".8rem 0 0" }}>
           {capabilities.map((c) => (
             <div key={c.tier}>
-              {c.available ? "✓" : "·"} <b>{c.tier}</b> {c.reason}
+              {c.available ? "✓" : "·"} <b>{c.label}</b> — {c.reason}
             </div>
           ))}
         </div>
         <div className="sub" style={{ margin: ".5rem 0 0" }}>
-          Joins: {coverage.joinedExplicit} explicit · {coverage.joinedImplicit} implicit ·{" "}
-          {coverage.unjoinedDeterminations} decisions with no textual footprint ·{" "}
-          {coverage.editOnlyCards} edits nothing discusses.{" "}
-          {coverage.editorialGroupsFiltered} editorial groups filtered out.
+          {coverage.joinedExplicit + coverage.joinedImplicit} determinations linked to the text
+          they change · {coverage.unjoinedDeterminations} decisions that change no text ·{" "}
+          {coverage.editOnlyCards} text changes not discussed in the reasoning ·{" "}
+          {coverage.editorialGroupsFiltered} editorial-only changes filtered out.
           {!redline.available && redline.reason ? ` ${redline.reason}` : ""}
         </div>
       </div>
@@ -318,13 +363,19 @@ function CardView({ card, docNumber }: { card: Card; docNumber: string }) {
         {card.title}
       </h3>
       <div className="meta">
-        <span className="badge">{card.priority}</span>
-        {card.disposition && <span className="badge">{card.disposition}</span>}
-        <span className="badge">{card.provisionStatus}</span>
-        <span className="badge">join: {card.joinKind}</span>
-        {card.provisionRefs.length > 0 && <span>§ {card.provisionRefs.slice(0, 5).join(", ")}</span>}
+        <span className="badge">{PRIORITY_LABEL[card.priority] ?? card.priority}</span>
+        {card.disposition && (
+          <span className="badge">{DISPOSITION_LABEL[card.disposition] ?? card.disposition}</span>
+        )}
+        <span className="badge">
+          {PROVISION_STATUS_LABEL[card.provisionStatus] ?? card.provisionStatus}
+        </span>
+        <span className="badge">{JOIN_LABEL[card.joinKind] ?? card.joinKind}</span>
+        {card.provisionRefs.length > 0 && (
+          <span>amends § {card.provisionRefs.slice(0, 5).join(", ")}</span>
+        )}
         <span style={{ marginLeft: "auto" }}>
-          {card.editCount} edit{card.editCount === 1 ? "" : "s"}
+          {card.editCount} text change{card.editCount === 1 ? "" : "s"}
         </span>
       </div>
 
@@ -343,6 +394,11 @@ function CardView({ card, docNumber }: { card: Card; docNumber: string }) {
         <button className="ghost" onClick={showSource} disabled={loadingSrc}>
           {loadingSrc ? "Loading…" : source ? "Hide source" : "Show source"}
         </button>
+        <span className="hint">
+          {card.editCount > 0
+            ? "Source shows the passage this change sits in."
+            : "This decision changed no regulatory text; source shows the reasoning."}
+        </span>
         <button className="ghost" onClick={() => sendFeedback("agree")}>Agree</button>
         <button className="ghost" onClick={() => sendFeedback("disagree")}>Disagree</button>
         <button className="ghost" onClick={() => sendFeedback("recategorize")}>Recategorise</button>

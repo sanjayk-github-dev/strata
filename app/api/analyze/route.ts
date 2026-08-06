@@ -17,13 +17,15 @@ import {
   classifyResiduals,
   crossRefStats,
   extractDeterminations,
+  officialUrl,
+  TIER_LABEL,
   extractRedline,
   gateClaims,
   citeParagraph,
   type Claim,
   type Determination,
 } from "@/src/pipeline/index";
-import { HttpLlmClient, resolveLlmConfig } from "@/src/llm/index";
+import { cachedLlmFromEnv } from "@/src/llm/index";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -59,7 +61,7 @@ export async function GET(request: Request): Promise<Response> {
           stage: "capabilities",
           detail: doc.capabilities.join(" + "),
           done: true,
-          capabilities: doc.capabilityNotes,
+          capabilities: doc.capabilityNotes.map((n) => ({ ...n, label: TIER_LABEL[n.tier] })),
           meta: doc.meta,
         });
 
@@ -95,10 +97,9 @@ export async function GET(request: Request): Promise<Response> {
         });
 
         // ---- model tier, when configured ----
-        const cfg = useModel ? resolveLlmConfig() : null;
-        if (cfg) {
-          const llm = new HttpLlmClient(cfg);
-          emit({ stage: "model", detail: `classifying dispositions via ${llm.label}` });
+        const llm = useModel ? cachedLlmFromEnv() : null;
+        if (llm) {
+          emit({ stage: "model", detail: `classifying via ${llm.label} (cached)` });
 
           const classified: Determination[] = [];
           for (const [i, det] of determinations.entries()) {
@@ -139,8 +140,8 @@ export async function GET(request: Request): Promise<Response> {
         // is what keeps responses small enough to be served anywhere.
         emit({
           result: {
-            meta: doc.meta,
-            capabilities: doc.capabilityNotes,
+            meta: { ...doc.meta, officialUrl: officialUrl(doc.meta.htmlUrl, doc.meta.frDocNumber) },
+            capabilities: doc.capabilityNotes.map((n) => ({ ...n, label: TIER_LABEL[n.tier] })),
             verificationRate,
             funnel: materiality.funnel,
             coverage,

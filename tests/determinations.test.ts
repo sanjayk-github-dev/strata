@@ -11,6 +11,7 @@ import {
   crossRefStats,
   extractCrossRefs,
   extractDeterminations,
+  extractDirectiveRefs,
   isLikelyProvisionRef,
 } from "../src/pipeline/determinations.js";
 import {
@@ -175,6 +176,50 @@ describe("cross-reference extraction", () => {
     for (const det of extractDeterminations(d)) {
       expect(det.crossRefs).not.toContain("205");
       expect(det.crossRefs).not.toContain("206");
+    }
+  });
+});
+
+describe("a mention is not an amendment", () => {
+  it("excludes a reference the agency declined to act on", async () => {
+    // Found by reading a real card. Order No. 2023 contains a determination reading
+    // "Because we do not adopt the NOPR proposal…, we decline to adopt the proposal to
+    // add new section 3.1.2" — and it was joining nine unrelated edits from §3.1.2 to a
+    // decision that explicitly rejected creating it. The card read perfectly and was
+    // wrong, which is the failure mode the TDD flags as least visible.
+    const d = await doc(DOCS.order2023);
+    const target = extractDeterminations(d).find((x) =>
+      d.text
+        .slice(x.citation.span[0], x.citation.span[1])
+        .includes("decline to adopt the proposal to add new section 3.1.2"),
+    );
+    expect(target, "expected the declining determination to exist").toBeDefined();
+    expect(target!.crossRefs).toContain("3.1.2"); // still surfaced as context
+    expect(target!.amendedRefs).not.toContain("3.1.2"); // but never joined on
+  });
+
+  it("excludes a reference to what already exists", async () => {
+    const xref = FERC_RULEMAKING.crossReference!.pattern;
+    const refs = extractDirectiveRefs(
+      "We note the existing requirements in section 2.3 of the pro forma LGIP.",
+      xref,
+    );
+    expect(refs).toEqual([]);
+  });
+
+  it("includes a reference the agency directs a change to", () => {
+    const xref = FERC_RULEMAKING.crossReference!.pattern;
+    const refs = extractDirectiveRefs(
+      "Accordingly, we modify section 3.1.1.1 of the pro forma LGIP as follows.",
+      xref,
+    );
+    expect(refs).toContain("3.1.1.1");
+  });
+
+  it("directive references are a strict subset of mentions", async () => {
+    const d = await doc(DOCS.order2023);
+    for (const det of extractDeterminations(d)) {
+      for (const ref of det.amendedRefs) expect(det.crossRefs).toContain(ref);
     }
   });
 });

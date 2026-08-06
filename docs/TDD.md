@@ -906,6 +906,27 @@ moved), *determination alone* (a decision with no textual footprint — the majo
 and precisely what a redline-only tool shows as nothing at all), and *edits alone* (text moved with no
 discussion of it).
 
+### A mention is not an amendment
+
+Found by reading a real card, not by a test. Order No. 2023's first assembled card cited §2.3 and
+§3.1.2 and attached nine text changes. The determination actually read:
+
+> *"Because we do not adopt the NOPR proposal…, we **decline to adopt** the proposal to add new
+> section 3.1.2…"* — and, of §2.3, *"the **existing requirements** in section 2.3…"*
+
+One reference was a decision *not* to create a provision; the other was context. Nine unrelated edits
+were attached to a decision that changed nothing. The card read perfectly and was wrong — exactly the
+failure this document calls least visible and most damaging.
+
+`Determination` now carries two fields. `crossRefs` is every provision mentioned, kept as context for
+the reader. **`amendedRefs` is only those the agency directs a change to**, and only that is joined
+on. A reference qualifies when its sentence carries directive language (*"we modify section X"*) and
+does not carry declining language (*decline*, *do not adopt*, *reject*, *existing requirements*,
+*would read*).
+
+Measured on Order No. 2023-A: **20 of 31 determinations mention a provision; only 9 direct a change to
+one.** Explicit joins fell from 16 to 6 — the drop is the fix working, not a regression.
+
 ### Cards are an overlapping cover, not a partition
 
 First-come-first-served claiming suppressed **six real joins** on this document, because two

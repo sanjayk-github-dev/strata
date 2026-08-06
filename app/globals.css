@@ -54,3 +54,10 @@ ins { background:rgba(22,163,74,.18); text-decoration:none; padding:0 .1rem }
 .fb { display:flex; gap:.4rem; margin-top:.5rem; align-items:center }
 .fb button { padding:.25rem .6rem; font-size:.75rem }
 .saved { color:var(--ok); font-size:.75rem }
+.help { font-size:.82rem; color:var(--mut); margin:-.7rem 0 1.25rem; }
+.help ul { margin:.3rem 0 .4rem; padding-left:1.1rem }
+.help li { padding:.05rem 0 }
+.help code { font-family:ui-monospace,Menlo,monospace; background:var(--panel);
+  border:1px solid var(--line); border-radius:4px; padding:.02rem .3rem; font-size:.95em }
+.hint { font-size:.72rem; color:var(--mut); margin-left:.3rem }
+a { color:inherit }

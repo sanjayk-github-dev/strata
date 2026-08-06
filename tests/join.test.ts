@@ -65,15 +65,33 @@ describe("provision numbering", () => {
 });
 
 describe("explicit joins resolve deterministically", () => {
-  it("links a determination to the provision it names", async () => {
+  it("links a determination to a provision it directs a change to", async () => {
+    // Measured: 6 explicit joins on this document, down from 16 before directive
+    // filtering. The drop is the point — 20 of 31 determinations *mention* a provision
+    // but only 9 *direct a change* to one, and joining on mentions attached unrelated
+    // edits to decisions that changed nothing.
     const { cards } = await assembled(DOCS.order2023A);
     const explicit = cards.filter((c) => c.joinKind === "explicit");
-    expect(explicit.length).toBeGreaterThan(10);
+    expect(explicit.length).toBeGreaterThan(0);
 
     for (const card of explicit) {
       expect(card.determination).toBeDefined();
       expect(card.provisionRefs.length).toBeGreaterThan(0);
       expect(card.edits.length).toBeGreaterThan(0);
+      // Every provision a card claims to amend must be one the determination directed,
+      // never merely mentioned.
+      for (const ref of card.provisionRefs) {
+        expect(card.determination!.amendedRefs).toContain(ref);
+      }
+    }
+  });
+
+  it("joins on directives only — mentions never attach edits", async () => {
+    const { cards } = await assembled(DOCS.order2023A);
+    for (const card of cards) {
+      if (!card.determination || card.edits.length === 0) continue;
+      if (card.joinKind !== "explicit") continue;
+      expect(card.determination.amendedRefs.length).toBeGreaterThan(0);
     }
   });
 

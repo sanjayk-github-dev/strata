@@ -6,7 +6,7 @@
  */
 import { NextResponse } from "next/server";
 
-import { resolveVersions, UnsupportedSourceError } from "@/src/pipeline/index";
+import { officialUrl, resolveVersions, UnsupportedSourceError } from "@/src/pipeline/index";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -19,7 +19,13 @@ export async function GET(request: Request): Promise<Response> {
 
   try {
     const versions = await resolveVersions(input);
-    return NextResponse.json({ input, versions });
+    return NextResponse.json({
+      input,
+      versions: versions.map((v) => ({
+        ...v,
+        officialUrl: officialUrl(v.htmlUrl, v.frDocNumber),
+      })),
+    });
   } catch (err) {
     if (err instanceof UnsupportedSourceError) {
       // Naming what IS supported, rather than a bare rejection.

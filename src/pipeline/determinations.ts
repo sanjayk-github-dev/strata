@@ -34,6 +34,51 @@ export function extractCrossRefs(text: string, pattern: RegExp): string[] {
 }
 
 /**
+ * The agency is directing a change to this provision, right here.
+ *
+ * FERC writes "Accordingly, we modify section 3.1.1.1 of the pro forma LGIP as follows"
+ * when it is actually amending text.
+ */
+const DIRECTIVE = /\b(?:we|commission)\b[^.;]{0,80}?\b(?:modif|revis|amend|add|adopt|delet|remov|replac)/i;
+
+/**
+ * The agency is declining, or merely describing what already exists.
+ *
+ * This is the guard that matters. A determination reading "we decline to adopt the
+ * proposal to add new section 3.1.2" mentions section 3.1.2 and changes nothing — joining
+ * it to every edit in that section attaches nine unrelated changes to a decision that
+ * explicitly rejected them. Likewise "the existing requirements in section 2.3" is
+ * context, not an amendment. Both were producing wrong cards on real output.
+ */
+const DECLINING =
+  /\b(?:declin\w*|do(?:es)? not adopt|did not adopt|not persuaded|reject\w*|no(?:t)? (?:necessary|required)|rather than|instead of|existing requirements?|would read|proposed to)\b/i;
+
+/** Split into sentences, crudely but adequately: provision numbers contain periods. */
+function sentences(text: string): string[] {
+  return text.split(/(?<=[.;:])\s+(?=[A-Z(])/);
+}
+
+/**
+ * Cross-references the agency is *directing a change to*, as opposed to merely mentioning.
+ *
+ * A bare "section N" mention is not evidence that this determination changed N. Measured
+ * on Order No. 2023: the first assembled card cited §2.3 and §3.1.2, and both mentions
+ * were non-directive — one describing existing requirements, one explicitly declining to
+ * create the section. Nine unrelated edits were attached to a decision that changed
+ * nothing, which is precisely the "attaches a decision to the wrong provision" failure the
+ * TDD flags as least visible and most damaging.
+ */
+export function extractDirectiveRefs(text: string, pattern: RegExp): string[] {
+  const out = new Set<string>();
+  for (const sentence of sentences(text)) {
+    if (!DIRECTIVE.test(sentence)) continue;
+    if (DECLINING.test(sentence)) continue;
+    for (const ref of extractCrossRefs(sentence, pattern)) out.add(ref);
+  }
+  return [...out];
+}
+
+/**
  * Statutory references are not provision references.
  *
  * FERC cites "section 205" and "section 206" of the Federal Power Act constantly. Those
@@ -89,6 +134,7 @@ export function extractDeterminations(doc: ParsedDocument): Determination[] {
       // Phase 6 replaces this. Never guessed here.
       disposition: "unclassified",
       crossRefs: refs.filter(isLikelyProvisionRef),
+      amendedRefs: (xref ? extractDirectiveRefs(body, xref) : []).filter(isLikelyProvisionRef),
       citation: {
         frDocNumber: doc.meta.frDocNumber,
         sectionId: section.id,

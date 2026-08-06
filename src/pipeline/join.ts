@@ -210,7 +210,9 @@ export function assembleCards(
   for (const det of determinations) {
     // --- explicit: the agency named the provision ---
     const sectionIds = new Set<string>();
-    for (const ref of det.crossRefs) {
+    // Only provisions the determination directs a change to — a mention is not an
+    // amendment. See extractDirectiveRefs.
+    for (const ref of det.amendedRefs) {
       for (const s of index.get(ref) ?? []) sectionIds.add(s.id);
     }
     // Deliberately not filtered by `claimed`: two determinations can bear on the same
@@ -244,7 +246,7 @@ export function assembleCards(
     else if (joinKind === "implicit") coverage.joinedImplicit++;
     else coverage.unjoinedDeterminations++;
 
-    cards.push(makeCard(doc, det, matched, joinKind, det.crossRefs));
+    cards.push(makeCard(doc, det, matched, joinKind, det.amendedRefs));
   }
 
   // --- edits nothing discussed ---

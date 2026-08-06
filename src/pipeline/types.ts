@@ -199,7 +199,16 @@ export interface Determination {
   id: string;
   headingPath: string[];
   disposition: Disposition;
+  /** Every provision this block mentions — context for the reader. */
   crossRefs: string[];
+  /**
+   * Provisions this block directs a change to.
+   *
+   * Distinct from `crossRefs` on purpose: a mention is not an amendment. "We decline to
+   * adopt the proposal to add new section 3.1.2" mentions 3.1.2 and changes nothing.
+   * Only these are used to join a determination to redline edits.
+   */
+  amendedRefs: string[];
   citation: Citation;
 }
 
