@@ -11,6 +11,8 @@ import {
   analyzeDocument,
   bodyParagraphs,
   citeParagraph,
+  crossRefStats,
+  extractDeterminations,
   gateClaims,
   resolveVersions,
   UnsupportedSourceError,
@@ -58,6 +60,26 @@ function summarize(doc: ParsedDocument): void {
     `  citations: ${gate.passed.length}/${claims.length} verified (${pct}%)` +
       (gate.suppressed.length > 0 ? ` · ${gate.suppressed.length} suppressed` : ""),
   );
+
+  // T2 — determination blocks. Structure only; dispositions are classified in Phase 6.
+  const dets = extractDeterminations(doc);
+  if (dets.length > 0) {
+    const stats = crossRefStats(doc);
+    console.log(
+      `  determinations: ${dets.length} blocks · ` +
+        `${(stats.coverage * 100).toFixed(0)}% carry a provision reference ` +
+        `(${stats.totalRefs} refs, ${stats.filteredStatutory} statutory filtered)`,
+    );
+    for (const det of dets.slice(0, 3)) {
+      const size = det.citation.span[1] - det.citation.span[0];
+      const ctx = det.headingPath.slice(-2).join(" › ");
+      console.log(
+        `      · ${ctx.slice(0, 62).padEnd(62)} ${String(size).padStart(6)}ch  ` +
+          `${det.crossRefs.slice(0, 4).join(",") || "—"}`,
+      );
+    }
+    if (dets.length > 3) console.log(`      … ${dets.length - 3} more`);
+  }
 }
 
 async function main(): Promise<void> {

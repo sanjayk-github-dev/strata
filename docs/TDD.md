@@ -496,6 +496,40 @@ before redline because it applies to 5 of 5 applicable documents rather than 2 o
 genuine `"Commission Determination "` headings carry trailing whitespace). The design-time audit found
 one of each failure mode; the counts above are trim-then-anchor counts.
 
+**Determination blocks are sections.** Block extents come from the Phase 1 section tree rather than a
+separate traversal: a block runs from its heading to the next heading at the same or higher level, so
+sub-discussion is included and the next block is never swallowed. Verified non-overlapping and in
+document order. Block sizes range from ~740 to ~36,600 characters.
+
+**Dispositions are not guessed here.** Every block is emitted `unclassified`; Phase 6 classifies. The
+Phase 2 derivation already handles the interim state correctly — `unclassified` yields
+`provisionStatus: "unknown"`, which escalates rather than resolving to a confident status.
+
+### Measured: cross-reference coverage varies by docket, and it is fine that it does
+
+| Document | Blocks | Blocks carrying a provision reference |
+|---|---|---|
+| Order No. 2023 | 47 | **68%** |
+| Order No. 2023-A | 31 | **65%** |
+| Order No. 1920 | 66 | 3% |
+| Order No. 1920-A | 75 | 0% |
+| Order No. 1920-B | 11 | 0% |
+
+RM21-17 discusses transmission planning rather than amending numbered pro forma provisions, so it
+rarely cites section numbers. **This costs nothing:** those documents are T2-only, so there is no
+redline for the Phase 7 join to link *to*. Coverage matters exactly where T3 exists — and there it is
+65–68%. Recorded so Phase 7 is designed against measured coverage rather than an assumption of
+universal cross-referencing, and so the retrieval fallback is sized honestly.
+
+**Statutory references are excluded.** FERC cites Federal Power Act sections 205 and 206 constantly
+(10 and 8 occurrences respectively in Order 2023-A's blocks alone). Joining a determination to pro
+forma "section 206" would be wrong, so bare integers ≥ 100 are treated as statutory. This is a
+documented heuristic, and the number it discards is reported alongside the coverage figure rather than
+hidden.
+
+**Result:** 28 Phase 3 tests, 138 total. The CLI reports blocks, coverage, and filtered statutory
+references per document.
+
 **Risk retired:** whether the general branch is structurally reliable.
 
 ---

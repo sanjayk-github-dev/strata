@@ -28,6 +28,14 @@ export {
   type LocateOptions,
 } from "./citation.js";
 export {
+  crossRefStats,
+  determinationContext,
+  extractCrossRefs,
+  extractDeterminations,
+  isLikelyProvisionRef,
+  type CrossRefStats,
+} from "./determinations.js";
+export {
   deriveConfidence,
   deriveProvisionStatus,
   requiresEscalation,
