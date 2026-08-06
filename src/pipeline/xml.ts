@@ -8,6 +8,14 @@
  * Design note: spans index into the plain text this module *generates*, not into the
  * raw XML. That keeps citation verification a pure string comparison against
  * `ParsedDocument.text`, with no XML re-parsing at verify time.
+ *
+ * Why `sax` rather than an object-mapping or DOM parser: the requirement is character
+ * offsets into a text projection *we* define — `<PRTPAGE>` vanishes, block elements emit
+ * newlines — over content that is heavily mixed (`a<E>b</E>c` must yield "abc" with the
+ * element spanning "b"). No library provides that, so the choice is really about which
+ * substrate makes it cheapest to build; streaming events win. Object mappers lose mixed
+ * content and offsets both, and native libxml bindings are ruled out by the serverless
+ * deploy target. Measured at ~400ms per 1.2MB.
  */
 
 import sax from "sax";
@@ -25,13 +33,23 @@ export interface XmlParseResult {
   elements: ElementSpan[];
 }
 
-/** Tags whose textual content should not be emitted into the plain text at all. */
+/**
+ * Tags whose textual content should not be emitted into the plain text at all.
+ *
+ * <PRTPAGE P="27123"/> carries a page number that is not part of the prose; emitting it
+ * would inject digits mid-sentence and corrupt quotes.
+ */
 const SKIP_CONTENT = new Set(["PRTPAGE"]);
 
 /**
  * Block-level tags. A newline is emitted when they close so that paragraph and heading
  * boundaries survive into the plain text — line structure is load-bearing for the
  * paragraph-numbering regex, which is anchored at start-of-content.
+ *
+ * This list is hand-curated and is the most plausible source of a future regression: a
+ * missing block tag would merge adjacent text and could stop paragraph numbers matching.
+ * Guarded at two levels — unit tests in tests/xml.test.ts, and invariant I3 at runtime,
+ * since merged paragraphs would break the contiguous 1..N sequence loudly.
  */
 const BLOCK = new Set([
   "P",
