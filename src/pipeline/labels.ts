@@ -85,5 +85,6 @@ export const STAGE_LABEL: Record<string, string> = {
   redline: "Extracting marked-up changes",
   rules: "Screening changes automatically",
   model: "Assessing changes needing judgement",
-  cards: "Assembling review items",
+  summarise: "Summarising the important changes",
+  cards: "Assembling the briefing",
 };

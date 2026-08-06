@@ -506,3 +506,81 @@ async function classifyBatch(
 
   return { results };
 }
+
+// ---------------------------------------------------------------------------
+// Change statements
+// ---------------------------------------------------------------------------
+
+const STATEMENT_SYSTEM = `You state, in one sentence, what an amendment to regulatory text changed.
+
+You are given a provision name and the text BEFORE and AFTER an amendment. Write the
+sentence a regulatory affairs analyst would want: what is now required, permitted,
+prohibited, or changed in amount — not a description of the edit.
+
+Good:  "The $5,000 application fee is now expressly non-refundable."
+Bad:   "The word 'non-refundable' was added before 'application fee'."
+
+Respond with JSON only:
+{"statement": "<one sentence, max 25 words>", "evidence": "<the exact added or deleted words this rests on, copied verbatim>"}
+
+The evidence MUST be text that was added or deleted — not unchanged surrounding text. If
+the change carries no substantive meaning, return {"statement": "", "evidence": ""}.`;
+
+export interface StatementResult {
+  statement: string;
+  evidence: string;
+}
+
+/**
+ * Generate a one-sentence statement of what a provision's change did.
+ *
+ * The gate here is tighter than `locateQuote` and simpler: the model's evidence must be
+ * text that was actually added or deleted. Unchanged surrounding text appears in the
+ * document and would pass a document-wide search, so verifying against the document alone
+ * would let the model support a claim about a change by quoting text that did not change.
+ * Matching against the edits themselves closes that.
+ */
+export async function generateStatement(
+  provision: string,
+  before: string,
+  after: string,
+  edits: ReadonlyArray<{ text: string; kind: "addition" | "deletion" }>,
+  llm: LlmClient,
+): Promise<StatementResult | null> {
+  let parsed: unknown = null;
+  try {
+    const res = await llm.complete({
+      system: STATEMENT_SYSTEM,
+      json: true,
+      temperature: 0,
+      user:
+        `Provision: ${provision}\n\n` +
+        `BEFORE: ${before.replace(/\s+/g, " ").trim().slice(0, 900)}\n\n` +
+        `AFTER:  ${after.replace(/\s+/g, " ").trim().slice(0, 900)}`,
+    });
+    parsed = extractJson(res.text);
+  } catch {
+    return null; // a provider failure leaves the change unsummarised, never unshown
+  }
+
+  const obj = (parsed ?? {}) as Record<string, unknown>;
+  const statement = typeof obj["statement"] === "string" ? obj["statement"].trim() : "";
+  const evidence = typeof obj["evidence"] === "string" ? obj["evidence"].trim() : "";
+  if (statement === "" || evidence === "") return null;
+
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const target = norm(evidence);
+  const grounded = edits.some((e) => {
+    const t = norm(e.text);
+    if (t.length === 0) return false;
+    // Either the quoted evidence sits inside an edit, or the whole of a substantial edit
+    // sits inside the quote. The length floor on the second direction matters: a
+    // one-character edit ("s", a comma) is contained in nearly any sentence, so without
+    // it the gate would pass anything the model wrote.
+    return t.includes(target) || (t.length >= 8 && target.includes(t));
+  });
+
+  // Ungrounded means the model described a change it cannot point at. The provision still
+  // reaches the reader with its redline; only the sentence is withheld.
+  return grounded ? { statement, evidence } : null;
+}

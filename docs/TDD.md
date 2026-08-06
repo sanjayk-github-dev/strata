@@ -970,12 +970,90 @@ since the product's claim is that ambiguity is surfaced rather than resolved.
 | Docket ID or FR URL → timeline with status badges | PRD W1 |
 | Unsupported source → clear message naming what *is* supported | §4 |
 | Version → funnel counts match pipeline output exactly | PRD W2, I1 |
-| Card → cited source passage rendered without navigating away | PRD FR9 |
+| Briefing entry → cited source passage rendered without navigating away | PRD FR9 |
 | Filtered groups expandable in place | PRD FR11 |
 | Expert feedback persists across reload | PRD FR12 |
 | Citation verification rate surfaced per version | PRD FR13 |
 | **All API responses under 4.5 MB** | §9 |
 | A docket absent from the manifest analyses correctly | arbitrary-input promise |
+
+---
+
+### Phase 9 — The briefing
+
+**Builds:** provision-level grouping, impact categorisation, model-written change statements.
+
+**Test:** `npx vitest run tests/briefing.test.ts`
+
+| Gate | Type |
+|---|---|
+| One entry per affected provision; provision identity unique across the briefing | exact, property |
+| Ordering is category-major, priority-minor | property |
+| Category counts sum to the entry count (**I1**) | exact, property |
+| `editorialOnly + editBacked == totalProvisions` (**I1**) | exact |
+| A document with determinations and no redline still briefs | exact |
+| A determination already attached to an edit-backed entry is not listed twice | property |
+| A statement whose quote is not in the added or deleted text is suppressed (**I2**) | exact |
+
+Phase 7 organised the output **by determination**, and reading the result showed why that was wrong.
+One determination adopting *"the revisions to section 1 of the pro forma LGIP"* swallowed 85 edits —
+section 1 being the entire Definitions chapter — while 226 other cards carried a single trivial edit
+each. Worse, a card could read *"Clarified — no text change"* directly above *"85 text changes"*,
+because the disposition described the determination and the edits described provisions.
+
+The unit is now **the affected provision**, and determinations attach to it as evidence. Both
+pathologies disappear: the 85-edit card splits along provision boundaries, the singleton edits have
+somewhere to belong, and the status describes the same thing the edits do.
+
+### Ordering is a product decision, so it is stated explicitly
+
+Entries group into six categories, ordered by **cost of missing one**: deadlines, then fees, then
+thresholds, then obligations, then defined terms, then everything else. A deadline that passes cannot
+be recovered; a fee paid wrongly can be argued back; a definition can be re-read.
+
+Measured on Order No. 2023 — 201 affected provisions: **74 deadline · 22 fees · 9 thresholds ·
+24 obligations · 5 defined terms · 68 other**, with 14 further provisions changed in editorial ways
+only and not listed.
+
+### Three categorisation defects, each found by reading output
+
+**Definitions were invisible.** The obligation test (`\bshall\b`) ran ahead of the definition test,
+and a definition reads *"X shall mean Y"* — so both Definitions chapters, 131 changes between them,
+filed under "Who must do what" and the defined-terms count read **0**. `shall` is the most common word
+in regulatory text and the weakest signal available; it now runs last.
+
+**A Definitions chapter is a definitions change whatever it mentions.** With 83 changes aggregated into
+one entry, the text mentions costs, days and megawatts somewhere by certainty — Order 2023's
+`Section 1. Definitions` filed under "Fees, deposits and penalties" on that basis. Where the provision
+title settles the question, the title wins.
+
+**Categorising on before/after windows read the neighbourhood, not the change.** Those windows carry
+the unchanged surroundings, so `Recitals` landed under fees because untouched text near the edits says
+"security". Categorisation now reads the added and deleted text alone. Two near-identical provisions —
+*Models for Non-synchronous Small Generating Facilities* and *Models for Non-Synchronous Generators* —
+had been landing in different categories; they now agree.
+
+### Statements are citation-gated against the edits, not the document
+
+A change statement is one model-written sentence. The gate is **not** `locateQuote`: a document-wide
+search passes any quote of unchanged surrounding text, which would let the model describe a change
+the document does not contain and still verify. The quote must match text this document actually
+added or deleted, with a length floor so a one-character edit cannot ground an arbitrary sentence.
+
+Ungrounded means the entry still reaches the reader with its redline; only the sentence is withheld.
+Same for a provider failure — the briefing is useful without statements, so they are never on the
+critical path.
+
+The statement budget spreads across categories rather than taking a global top-N. A flat slice of an
+ordering that is category-major spent all 24 calls on deadlines and left every other section of the
+page unsummarised.
+
+### Repeated substitutions collapse
+
+A term renamed throughout a pro forma agreement produces one edit per occurrence — *Applicable
+Reliability Council → Electric Reliability Organization* appears eleven times in one provision.
+Identical substitutions are shown once with their count, so the handful of genuinely distinct edits
+in the same provision are not buried. Nothing is dropped; the count is displayed.
 
 ---
 

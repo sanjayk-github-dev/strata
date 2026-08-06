@@ -79,3 +79,12 @@ a { color:inherit }
 .outline > li.primary { color:var(--mat) }
 .outline ul { list-style:none; padding:0 0 0 1.1rem; margin:.15rem 0 0 }
 .outline ul li { border:0; padding:.08rem 0; font-weight:400; color:var(--mut) }
+.cat { font-size:.82rem; text-transform:uppercase; letter-spacing:.05em; color:var(--mut);
+  margin:1.5rem 0 .5rem; display:flex; align-items:center; gap:.5rem;
+  border-bottom:1px solid var(--line); padding-bottom:.3rem }
+.cat .count { margin-left:auto; font-size:.8rem; text-transform:none; letter-spacing:0 }
+.card h4 { margin:0 0 .3rem; font-size:.9rem; font-weight:600 }
+.statement { margin:.1rem 0 .5rem; font-size:.92rem; line-height:1.5 }
+button.link { background:none; border:0; color:var(--mut); font-size:.72rem;
+  text-decoration:underline; cursor:pointer; padding:.2rem; margin-left:auto }
+button.link:disabled { text-decoration:none; opacity:.6 }

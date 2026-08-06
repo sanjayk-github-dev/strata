@@ -202,7 +202,8 @@ one published version  (250,331 words)
                                           │
                      linked by section cross-reference
                                           ▼
-                                reviewable change cards
+                          the briefing: affected provisions,
+                          grouped by kind of consequence
 ```
 
 *Measured on FERC Order No. 2023-A. Deterministic rules decide 69.5% of edits; the remainder is
@@ -219,20 +220,41 @@ plainly what was and was not available — it never silently returns less, and i
 analysis whose structural precondition is absent. Every document yields at least the version timeline
 and status.
 
-### 7.2 Anatomy of a change card
+### 7.2 The briefing
 
-Each card is the atomic unit of review — individually citable, individually reviewable, individually
-disputable:
+The output is a briefing on **the provisions this document changed**, grouped by the kind of
+consequence each change carries and ordered so that the costliest thing to miss comes first.
+
+| Group | Contains |
+|---|---|
+| **Deadlines and timing** | Filing windows, response periods, processing times |
+| **Fees, deposits and penalties** | Amounts owed, refundability, security requirements |
+| **Thresholds and eligibility** | Capacity limits, voltage levels, qualifying criteria |
+| **Who must do what** | Obligations moving between parties |
+| **Defined terms** | Changes to the vocabulary the rest of the document is written in |
+| **Other changes** | Everything else that changed substantively |
+
+The unit is the provision, not the edit and not the decision block. A reader tracks "§3.5.2.1
+Processing Time changed", not "edit 1,406 was an addition" — and a provision is the level at which
+a change can actually be acted on.
+
+Each entry carries:
 
 | Element | Purpose |
 |---|---|
-| **What changed** | The provision, rendered as a redline |
-| **Disposition** | Affirmed / clarified / modified / set aside / sustained |
-| **Effect** | Whether the obligation is new, strengthened, relaxed, unchanged, or removed |
-| **Why it matters** | One or two sentences, emitted only if its citation verifies |
-| **Citation** | Document, section, paragraph, and character span — click to open source |
-| **Confidence** | Low confidence is visually distinct and sorts to the top |
-| **Feedback** | Agree / disagree / recategorize |
+| **What changed** | One sentence in plain language, emitted only if its quoted evidence matches text this document actually added or deleted |
+| **The redline** | The added and deleted text itself, with repeated substitutions collapsed and counted |
+| **Status** | Proposed / adopted / settled / reopened for this provision |
+| **Agency reasoning** | The decision blocks that direct a change to this provision, where the document contains them |
+| **Source** | Section, paragraph, and character span — opens the passage in place |
+| **Priority** | Changes carrying legal effect sort above those awaiting judgement, which sort above clarifying ones |
+
+Where a document publishes no marked-up text, the briefing is built from its decision blocks instead:
+a determination that a provision stands as written is a reviewable change in status, and it is
+precisely what a redline-only tool shows as an empty page.
+
+Disagreement can be recorded on any entry, but it is a quiet affordance rather than the main action.
+The reader is here to review what changed; correcting the system is a byproduct of that.
 
 ### 7.3 What makes the citation trustworthy
 
@@ -258,9 +280,8 @@ must be visible together.
 trustworthy if the discarded remainder is one interaction away. A static summary cannot offer that;
 it can only assert it.
 
-Judgment capture (§7.2) similarly requires a surface: expert agreement and disagreement is the product's
-only source of labeled data, and it is collected at the moment of review, on the specific card in
-dispute.
+Judgment capture (§7.2) similarly requires a surface: expert disagreement is the product's only source
+of labeled data, and it is collected at the moment of review, on the specific entry in dispute.
 
 ---
 
@@ -269,20 +290,19 @@ dispute.
 **W1 — Open a proceeding.** User enters a proceeding identifier. Strata resolves every published
 version, ordered chronologically, each labeled proposed / final / amended with its publication date.
 
-**W2 — Review a version.** User selects a version. Strata presents the triage summary — total edits,
-how many carry legal effect, how many are clarifying, how many are editorial — then the material
-changes as cards, ordered by confidence with ambiguous items first. For a version without redline
-markup, the packet contains dispositions rather than text edits, and says so.
+**W2 — Review a version.** User selects a version. Strata presents the briefing: the provisions this
+document changed, grouped by kind of consequence, deadlines first, with the changes carrying legal
+effect at the head of each group. A summary line gives the totals behind it. For a version without
+redline markup, the briefing is built from decision blocks rather than text edits, and says so.
 
-**W3 — Verify a claim.** User opens a card. Strata shows the source passage from the regulatory text
+**W3 — Verify a claim.** User opens an entry. Strata shows the source passage from the regulatory text
 beside the reasoning paragraph that explains the disposition. The user confirms the claim against the
 source without leaving the product.
 
 **W4 — Inspect the filter.** User expands the clarifying or editorial groups to audit what was set
 aside.
 
-**W5 — Record judgment.** User marks agree, disagree, or recategorize on any card. Disagreements
-accumulate as labeled data.
+**W5 — Record judgment.** User flags any entry as wrong. Disagreements accumulate as labeled data.
 
 ---
 
@@ -299,9 +319,9 @@ accumulate as labeled data.
 | FR7 | Attach a citation — document, section, paragraph, character span — to every claim |
 | FR8 | Verify every citation against source before display; suppress claims that fail |
 | FR9 | Display the cited source passage alongside the claim, in product, without navigating away |
-| FR10 | Assign and display a confidence level per card; sort ambiguous items first |
+| FR10 | Group changes by kind of consequence and order them by cost of missing one; sort ambiguous items above clarifying ones within a group |
 | FR11 | Present the full triage funnel with filtered groups expandable in place |
-| FR12 | Capture per-card expert feedback and persist it |
+| FR12 | Capture per-provision expert feedback and persist it |
 | FR13 | Report citation verification rate for every processed version |
 | FR14 | Detect per document which analyses its structure supports; state what was and was not available, and never approximate an unavailable one |
 
@@ -317,8 +337,8 @@ actively misleading here: a user spending more time in the product is a user we 
 | Metric | Definition | Target |
 |---|---|---|
 | **Citation verification rate** | Share of published claims whose quoted span matches source verbatim | 100% — anything lower is a defect, not a trend |
-| **Expert disagreement rate** | Share of cards marked disagree or recategorize | < 10% at steady state |
-| **Source-check rate** | Share of cards where the user opens the source passage | High initially, **declining over time** — a falling rate is earned trust |
+| **Expert disagreement rate** | Share of entries flagged as wrong | < 10% at steady state |
+| **Source-check rate** | Share of entries where the user opens the source passage | High initially, **declining over time** — a falling rate is earned trust |
 | **Sign-off rate** | Share of packets an expert will attach their name to | The blunt question, and the one that matters |
 
 ### Accuracy
@@ -363,7 +383,7 @@ under-surfacing is a liability.
 
 ## 12. Roadmap
 
-**v1 — Trusted change packet.** Version timeline, triage funnel, citation-verified change cards,
+**v1 — Trusted change packet.** Version timeline, triage funnel, citation-verified change briefing,
 expert feedback. Scope of this document.
 
 **v2 — Change to action.** Map each change to the company's own obligations, projects, and documents;

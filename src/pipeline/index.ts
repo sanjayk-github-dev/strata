@@ -12,6 +12,15 @@ import type { DocumentMeta, ParsedDocument } from "./types.js";
 
 export * from "./types.js";
 export {
+  buildBriefing,
+  categorise,
+  CATEGORY_LABEL,
+  CATEGORY_ORDER,
+  type Briefing,
+  type ImpactCategory,
+  type ProvisionChange,
+} from "./briefing.js";
+export {
   isAdministrative,
   substantiveOutline,
   type OutlineEntry,
@@ -74,6 +83,7 @@ export {
   applyResiduals,
   classifyDisposition,
   classifyResiduals,
+  generateStatement,
   measureAgreement,
   type AgreementReport,
   extractJson,

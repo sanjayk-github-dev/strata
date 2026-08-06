@@ -11,7 +11,9 @@
  */
 import {
   analyzeDocument,
-  assembleCards,
+  buildBriefing,
+  CATEGORY_LABEL,
+  generateStatement,
   classifyDisposition,
   classifyEdits,
   classifyResiduals,
@@ -20,6 +22,7 @@ import {
   applyResiduals,
   officialUrl,
   STAGE_LABEL,
+  CATEGORY_ORDER,
   substantiveOutline,
   TIER_LABEL,
   extractRedline,
@@ -44,6 +47,37 @@ function approxWords(text: string): number {
     inWord = !space;
   }
   return words;
+}
+
+/**
+ * Collapse edits that make the same substitution over and over.
+ *
+ * A term renamed throughout a pro forma agreement produces one edit per occurrence:
+ * "Applicable Reliability Council" → "Electric Reliability Organization" appears dozens of
+ * times in Order No. 2023's Article 1. Listing each one buries the handful of edits that
+ * are actually distinct. The count is kept, so nothing is hidden — only repeated.
+ */
+function collapseRepeats(
+  edits: ReadonlyArray<{ kind: string; text: string; materiality?: string }>,
+): Array<{ kind: string; text: string; materiality?: string; repeats: number }> {
+  const out: Array<{ kind: string; text: string; materiality?: string; repeats: number }> = [];
+  const seen = new Map<string, number>();
+  for (const e of edits) {
+    const key = `${e.kind}:${e.text.replace(/\s+/g, " ").trim().toLowerCase()}`;
+    const at = seen.get(key);
+    if (at !== undefined) {
+      out[at]!.repeats++;
+      continue;
+    }
+    seen.set(key, out.length);
+    out.push({
+      kind: e.kind,
+      text: e.text.slice(0, 260),
+      materiality: e.materiality,
+      repeats: 1,
+    });
+  }
+  return out;
 }
 
 interface Stage {
@@ -172,13 +206,52 @@ export async function GET(request: Request): Promise<Response> {
           });
         }
 
-        const { cards, coverage } = assembleCards(
-          doc,
-          determinations,
-          materiality,
-          rl.region?.span ?? null,
-        );
-        emit({ stage: "cards", detail: `${cards.length} changes to review`, done: true });
+        const briefing = buildBriefing(doc, determinations, materiality);
+
+        // Statements for the changes a reader will actually open first. Bounded on
+        // purpose: one model call per provision, and the briefing is useful without them.
+        if (llm) {
+          // Spread across categories rather than taking the global top 25. The briefing is
+          // ordered by category, so a flat slice spent the entire budget on deadlines and
+          // left every other section of the page unsummarised.
+          const top = CATEGORY_ORDER.flatMap((cat) =>
+            briefing.changes
+              .filter((c) => c.category === cat && c.priority === "material" && c.edits.length > 0)
+              .slice(0, 4),
+          ).slice(0, 24);
+          for (const [i, change] of top.entries()) {
+            const group = materiality.groups.find((g) =>
+              g.group.edits.some((e) => change.edits.some((x) => x.id === e.id)),
+            );
+            if (!group) continue;
+            const r = await generateStatement(
+              change.provision,
+              group.beforeAfter.before,
+              group.beforeAfter.after,
+              change.edits,
+              llm,
+            );
+            if (r) {
+              change.statement = r.statement;
+              change.statementEvidence = r.evidence;
+            }
+            if (i % 5 === 0) {
+              emit({ stage: "summarise", detail: `Change ${i + 1} of ${top.length}` });
+            }
+          }
+          const written = top.filter((c) => c.statement).length;
+          emit({
+            stage: "summarise",
+            detail: `${written} of ${top.length} summarised`,
+            done: true,
+          });
+        }
+
+        emit({
+          stage: "cards",
+          detail: `${briefing.changes.length} affected provisions`,
+          done: true,
+        });
 
         // Cards without full quote text: the client fetches spans on demand (FR9), which
         // is what keeps responses small enough to be served anywhere.
@@ -190,30 +263,30 @@ export async function GET(request: Request): Promise<Response> {
             claimsChecked,
             outline,
             funnel: materiality.funnel,
-            coverage,
+            provisionsChanged: briefing.changes.length,
+            determinationCount: determinations.length,
             redline: { available: !!rl.region, reason: rl.unavailableReason ?? null },
-            cards: cards.map((c) => ({
+            categories: CATEGORY_LABEL,
+            byCategory: briefing.byCategory,
+            editorialOnlyProvisions: briefing.editorialOnlyProvisions,
+            changes: briefing.changes.map((c) => ({
               id: c.id,
-              title: c.title,
+              provision: c.provision,
+              provisionNumber: c.provisionNumber,
+              provisionPath: c.provisionPath,
+              category: c.category,
               priority: c.priority,
               escalated: c.escalated,
-              joinKind: c.joinKind,
-              provisionRefs: c.provisionRefs,
               provisionStatus: c.provisionStatus,
-              effect: c.effect,
-              disposition: c.determination?.disposition ?? null,
+              statement: c.statement ?? null,
+              statementEvidence: c.statementEvidence ?? null,
+              disposition: c.determinations[0]?.disposition ?? null,
+              determinationCount: c.determinations.length,
               editCount: c.edits.length,
-              edits: c.edits.slice(0, 12).map((e) => ({
-                kind: e.kind,
-                text: e.text.slice(0, 300),
-                materiality: e.materiality,
-                ruleId: e.ruleId ?? null,
-                span: e.citation.span,
-              })),
-              citations: c.citations.slice(0, 12).map((x) => ({
+              edits: collapseRepeats(c.edits).slice(0, 8),
+              citations: c.citations.slice(0, 4).map((x) => ({
                 span: x.span,
                 sectionId: x.sectionId,
-                paragraphNumber: x.paragraphNumber,
               })),
             })),
           },

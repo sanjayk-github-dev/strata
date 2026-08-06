@@ -140,7 +140,10 @@ describe("analysis stream (PRD W2)", () => {
     const f = result.funnel;
     expect(f.material + f.editorial + f.undecided).toBe(f.totalEdits); // I1
     expect(result.verificationRate).toBe(1);
-    expect(result.coverage.totalCards).toBe(result.cards.length);
+    expect(result.provisionsChanged).toBe(result.changes.length);
+    expect(
+      Object.values(result.byCategory as Record<string, number>).reduce((a, n) => a + n, 0),
+    ).toBe(result.changes.length);
   }, 180_000);
 
   it("stays well under the 4.5 MB platform body limit", async () => {
@@ -156,10 +159,10 @@ describe("analysis stream (PRD W2)", () => {
     const result = last.result;
     expect(result.redline.available).toBe(false);
     expect(result.redline.reason).toMatch(/does not declare a redline convention/i);
-    // Determinations still carry: 66 decision-only cards, which is exactly what a
+    // Determinations still carry: 66 decisions to review, which is exactly what a
     // redline-only tool would show as nothing at all.
-    expect(result.coverage.totalCards).toBe(66);
-    expect(result.cards.every((c: { editCount: number }) => c.editCount === 0)).toBe(true);
+    expect(result.changes).toHaveLength(66);
+    expect(result.changes.every((c: { editCount: number }) => c.editCount === 0)).toBe(true);
   }, 180_000);
 });
 
@@ -183,7 +186,7 @@ describe("a proposed rule is useful, not a page of zeroes", () => {
 
   it("shows the document's own outline when there is nothing else to analyse", async () => {
     const { last } = await analyzeDoc("2022-13470");
-    expect(last.result.coverage.totalCards).toBe(0);
+    expect(last.result.changes).toHaveLength(0);
     const titles = last.result.outline.map((o: { title: string }) => o.title);
     expect(titles.some((t: string) => /Proposed Reforms/i.test(t))).toBe(true);
   }, 180_000);

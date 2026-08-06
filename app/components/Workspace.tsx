@@ -42,23 +42,26 @@ interface CardEdit {
   kind: "addition" | "deletion";
   text: string;
   materiality: string;
-  ruleId: string | null;
-  span: [number, number];
+  /** How many times this identical substitution occurs in the provision. */
+  repeats: number;
 }
 
-interface Card {
+interface Change {
   id: string;
-  title: string;
+  provision: string;
+  provisionNumber: string | null;
+  provisionPath: string[];
+  category: string;
   priority: "material" | "needs-review" | "clarifying";
   escalated: boolean;
-  joinKind: string;
-  provisionRefs: string[];
   provisionStatus: string;
-  effect: string;
+  statement: string | null;
+  statementEvidence: string | null;
   disposition: string | null;
+  determinationCount: number;
   editCount: number;
   edits: CardEdit[];
-  citations: Array<{ span: [number, number]; sectionId: string; paragraphNumber: number | null }>;
+  citations: Array<{ span: [number, number]; sectionId: string }>;
 }
 
 interface Analysis {
@@ -85,18 +88,13 @@ interface Analysis {
     primary: boolean;
   }>;
   funnel: { material: number; editorial: number; undecided: number; totalEdits: number; ruleCoverage: number };
-  coverage: {
-    determinations: number;
-    joinedExplicit: number;
-    joinedImplicit: number;
-    unjoinedDeterminations: number;
-    editOnlyCards: number;
-    editorialGroupsFiltered: number;
-    totalCards: number;
-    byPriority: Record<string, number>;
-  };
+  determinationCount: number;
+  provisionsChanged: number;
+  categories: Record<string, string>;
+  byCategory: Record<string, number>;
+  editorialOnlyProvisions: number;
   redline: { available: boolean; reason: string | null };
-  cards: Card[];
+  changes: Change[];
 }
 
 const PRIORITY_CLASS: Record<string, string> = {
@@ -304,8 +302,16 @@ function Result({
   visible: number;
   onMore: () => void;
 }) {
-  const { funnel, coverage, capabilities, verificationRate, redline } = analysis;
-  const shown = analysis.cards.slice(0, visible);
+  const { funnel, capabilities, verificationRate, redline } = analysis;
+  const shown = analysis.changes.slice(0, visible);
+
+  // Group into the categories the reader triages on, preserving server order.
+  const groups: Array<[string, Change[]]> = [];
+  for (const c of shown) {
+    const last = groups[groups.length - 1];
+    if (last && last[0] === c.category) last[1].push(c);
+    else groups.push([c.category, [c]]);
+  }
 
   return (
     <>
@@ -317,6 +323,7 @@ function Result({
             View official document ↗
           </a>
         </div>
+
         {(analysis.meta.commentsCloseOn || analysis.meta.effectiveOn) && (
           <div className="dates">
             {analysis.meta.commentsCloseOn && (
@@ -334,44 +341,44 @@ function Result({
 
         {analysis.meta.abstract && (
           <div className="abstract">
-            <div className="sub" style={{ margin: "0 0 .25rem" }}>
-              Agency summary, as published
-            </div>
+            <div className="sub" style={{ margin: "0 0 .25rem" }}>Agency summary, as published</div>
             {analysis.meta.abstract}
           </div>
         )}
 
         <div className="stats">
           <div className="stat">
+            <b>{analysis.provisionsChanged}</b>
+            <span>provisions changed</span>
+          </div>
+          <div className="stat">
+            <b>{analysis.determinationCount}</b>
+            <span>determinations</span>
+          </div>
+          <div className="stat">
+            <b>{funnel.totalEdits.toLocaleString()}</b>
+            <span>text changes</span>
+          </div>
+          <div className="stat">
             <b>
-              {analysis.claimsChecked > 0
-                ? `${(verificationRate * 100).toFixed(1)}%`
-                : "—"}
+              {analysis.claimsChecked > 0 ? `${(verificationRate * 100).toFixed(0)}%` : "—"}
             </b>
             <span>
               {analysis.claimsChecked > 0
-                ? `${analysis.claimsChecked.toLocaleString()} source citations checked`
+                ? `${analysis.claimsChecked.toLocaleString()} citations checked`
                 : "no citations to check"}
             </span>
           </div>
-          <div className="stat"><b>{coverage.determinations}</b><span>determinations</span></div>
-          <div className="stat"><b>{funnel.totalEdits}</b><span>text changes</span></div>
-          <div className="stat"><b>{(funnel.ruleCoverage * 100).toFixed(0)}%</b><span>auto-classified</span></div>
-          <div className="stat"><b>{coverage.totalCards}</b><span>changes to review</span></div>
         </div>
+
         <div className="sub" style={{ margin: ".8rem 0 0" }}>
-          {/* T1 is available for every federal document by definition, so stating it
-              carries no information. Only the absences are worth a line — and those are
-              worth a full explanation. */}
           {(() => {
             const optional = capabilities.filter((c) => c.tier !== "T1");
             const on = optional.filter((c) => c.available);
             const off = optional.filter((c) => !c.available);
             return (
               <>
-                {on.length > 0 && (
-                  <div>Analysis available: {on.map((c) => c.label).join(" · ")}</div>
-                )}
+                {on.length > 0 && <div>Analysis available: {on.map((c) => c.label).join(" · ")}</div>}
                 {off.map((c) => (
                   <div key={c.tier}>
                     <b>No {c.label.toLowerCase()}</b> — {c.reason}
@@ -380,19 +387,19 @@ function Result({
               </>
             );
           })()}
-        </div>
-        <div className="sub" style={{ margin: ".5rem 0 0" }}>
-          {coverage.joinedExplicit + coverage.joinedImplicit} determinations linked to the text
-          they change · {coverage.unjoinedDeterminations} decisions that change no text ·{" "}
-          {coverage.editOnlyCards} text changes not discussed in the reasoning ·{" "}
-          {coverage.editorialGroupsFiltered} editorial-only changes filtered out.
-          {!redline.available && redline.reason ? ` ${redline.reason}` : ""}
+          {analysis.editorialOnlyProvisions > 0 && (
+            <div>
+              {analysis.editorialOnlyProvisions} further provisions changed in editorial ways only
+              and are not listed.
+            </div>
+          )}
+          {!redline.available && redline.reason && <div>{redline.reason}</div>}
         </div>
       </div>
 
-      {analysis.cards.length === 0 && analysis.outline.length > 0 && (
+      {analysis.changes.length === 0 && analysis.outline.length > 0 && (
         <div className="panel">
-          <h3 style={{ margin: "0 0 .3rem", fontSize: ".95rem" }}>What this document proposes</h3>
+          <h3 style={{ margin: "0 0 .5rem", fontSize: ".95rem" }}>What this document proposes</h3>
           <ul className="outline">
             {analysis.outline.map((o) => (
               <li key={o.id} className={o.primary ? "primary" : ""}>
@@ -410,20 +417,28 @@ function Result({
         </div>
       )}
 
-      {shown.map((card) => (
-        <CardView key={card.id} card={card} docNumber={docNumber} />
+      {groups.map(([category, items]) => (
+        <section key={category}>
+          <h3 className="cat">
+            {analysis.categories[category] ?? category}
+            <span className="count">{analysis.byCategory[category] ?? items.length}</span>
+          </h3>
+          {items.map((c) => (
+            <ChangeView key={c.id} change={c} docNumber={docNumber} />
+          ))}
+        </section>
       ))}
 
-      {visible < analysis.cards.length && (
+      {visible < analysis.changes.length && (
         <button className="ghost" onClick={onMore}>
-          Show more ({analysis.cards.length - visible} remaining)
+          Show more ({analysis.changes.length - visible} remaining)
         </button>
       )}
     </>
   );
 }
 
-function CardView({ card, docNumber }: { card: Card; docNumber: string }) {
+function ChangeView({ change, docNumber }: { change: Change; docNumber: string }) {
   const [source, setSource] = useState<null | {
     before: string;
     quote: string;
@@ -432,65 +447,69 @@ function CardView({ card, docNumber }: { card: Card; docNumber: string }) {
     sourceUrl: string;
   }>(null);
   const [loadingSrc, setLoadingSrc] = useState(false);
-  const [saved, setSaved] = useState<string | null>(null);
+  const [flagged, setFlagged] = useState(false);
 
   const showSource = useCallback(async () => {
     if (source) return setSource(null);
-    const cite = card.citations[0];
+    const cite = change.citations[0];
     if (!cite) return;
     setLoadingSrc(true);
     try {
-      const res = await fetch(
-        `/api/source?doc=${docNumber}&start=${cite.span[0]}&end=${cite.span[1]}`,
-      );
+      const res = await fetch(`/api/source?doc=${docNumber}&start=${cite.span[0]}&end=${cite.span[1]}`);
       if (res.ok) setSource(await res.json());
     } finally {
       setLoadingSrc(false);
     }
-  }, [card.citations, docNumber, source]);
+  }, [change.citations, docNumber, source]);
 
-  const sendFeedback = useCallback(
-    async (verdict: string) => {
-      await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ frDocNumber: docNumber, cardId: card.id, verdict }),
-      });
-      setSaved(verdict);
-    },
-    [card.id, docNumber],
-  );
+  const flag = useCallback(async () => {
+    await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ frDocNumber: docNumber, cardId: change.id, verdict: "disagree" }),
+    });
+    setFlagged(true);
+  }, [change.id, docNumber]);
+
+  const shownEdits = change.edits.reduce((n, e) => n + e.repeats, 0);
 
   return (
     <div className="card">
-      <h3 className={PRIORITY_CLASS[card.priority]}>
-        {card.escalated ? "⚠ " : ""}
-        {card.title}
-      </h3>
+      <h4 className={PRIORITY_CLASS[change.priority]}>
+        {change.escalated ? "⚠ " : ""}
+        {change.provision}
+      </h4>
+
+      {change.statement && <p className="statement">{change.statement}</p>}
+
       <div className="meta">
-        <span className="badge">{PRIORITY_LABEL[card.priority] ?? card.priority}</span>
-        {card.disposition && (
-          <span className="badge">{DISPOSITION_LABEL[card.disposition] ?? card.disposition}</span>
-        )}
         <span className="badge">
-          {PROVISION_STATUS_LABEL[card.provisionStatus] ?? card.provisionStatus}
+          {PROVISION_STATUS_LABEL[change.provisionStatus] ?? change.provisionStatus}
         </span>
-        <span className="badge">{JOIN_LABEL[card.joinKind] ?? card.joinKind}</span>
-        {card.provisionRefs.length > 0 && (
-          <span>amends § {card.provisionRefs.slice(0, 5).join(", ")}</span>
+        {change.disposition && change.disposition !== "unclassified" && (
+          <span className="badge">{DISPOSITION_LABEL[change.disposition] ?? change.disposition}</span>
+        )}
+        {change.determinationCount > 0 && (
+          <span>
+            {change.determinationCount} determination
+            {change.determinationCount === 1 ? "" : "s"}
+          </span>
         )}
         <span style={{ marginLeft: "auto" }}>
-          {card.editCount} text change{card.editCount === 1 ? "" : "s"}
+          {change.editCount} text change{change.editCount === 1 ? "" : "s"}
         </span>
       </div>
 
-      {card.edits.length > 0 && (
+      {change.edits.length > 0 && (
         <div className="rl">
-          {card.edits.map((e, i) =>
-            e.kind === "deletion" ? <del key={i}>{e.text}</del> : <ins key={i}>{e.text}</ins>,
-          )}
-          {card.editCount > card.edits.length && (
-            <span className="ctx"> … {card.editCount - card.edits.length} more</span>
+          {change.edits.map((e, i) => (
+            <span key={i}>
+              {e.kind === "deletion" ? <del>{e.text}</del> : <ins>{e.text}</ins>}
+              {e.repeats > 1 && <span className="ctx"> ×{e.repeats}</span>}{" "}
+            </span>
+          ))}
+          {change.editCount > shownEdits && (
+            <span className="ctx"> … {change.editCount - shownEdits} more</span>
           )}
         </div>
       )}
@@ -499,13 +518,12 @@ function CardView({ card, docNumber }: { card: Card; docNumber: string }) {
         <button className="ghost" onClick={showSource} disabled={loadingSrc}>
           {loadingSrc ? "Loading…" : source ? "Hide source" : "Show source"}
         </button>
-        {card.editCount === 0 && (
+        {change.editCount === 0 && (
           <span className="hint">Changed no regulatory text — source shows the reasoning.</span>
         )}
-        <button className="ghost" onClick={() => sendFeedback("agree")}>Agree</button>
-        <button className="ghost" onClick={() => sendFeedback("disagree")}>Disagree</button>
-        <button className="ghost" onClick={() => sendFeedback("recategorize")}>Recategorise</button>
-        {saved && <span className="saved">recorded: {saved}</span>}
+        <button className="link" onClick={flag} disabled={flagged}>
+          {flagged ? "flagged" : "flag as wrong"}
+        </button>
       </div>
 
       {source && (
