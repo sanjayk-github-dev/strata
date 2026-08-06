@@ -6,8 +6,16 @@
  * See docs/TDD.md §2 "Local-first".
  */
 
-/** Document-level status, derived deterministically from the Federal Register `action` field. */
-export type Status = "proposed" | "final" | "amended";
+/**
+ * Document-level status, derived deterministically from the Federal Register `action`
+ * and `type` fields.
+ *
+ * `notice` matters more than it looks. A docket contains procedural notices — technical
+ * conferences, extensions of time, invitations to comment — alongside its rulemaking
+ * documents. Without this value they fell through to `final`, so RM21-17 showed six
+ * notices badged "final" in a product whose whole subject is regulatory status.
+ */
+export type Status = "proposed" | "final" | "amended" | "notice";
 
 /**
  * Capability tiers (docs/TDD.md §4). A tier is available only when its structural

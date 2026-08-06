@@ -32,7 +32,7 @@ interface Version {
   frDocNumber: string;
   title: string;
   publicationDate: string;
-  status: "proposed" | "final" | "amended";
+  status: "proposed" | "final" | "amended" | "notice";
   pageLength: number | null;
   type: string;
   officialUrl: string;
@@ -229,6 +229,10 @@ export default function Workspace() {
 
       {versions && versions.length > 0 && (
         <div className="panel">
+          <div className="sub" style={{ margin: "0 0 .6rem" }}>
+            Select a document to analyse. Procedural notices — technical conferences,
+            extensions of time — carry no analysable content.
+          </div>
           <table>
             <thead>
               <tr>
@@ -269,10 +273,6 @@ export default function Workspace() {
               })}
             </tbody>
           </table>
-          <div className="sub" style={{ margin: ".6rem 0 0" }}>
-            Select a rule or proposed rule to analyse. Procedural notices carry no
-            analysable structure.
-          </div>
         </div>
       )}
 

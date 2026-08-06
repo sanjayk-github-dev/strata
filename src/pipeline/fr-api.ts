@@ -40,6 +40,10 @@ const FIELDS = [
  * it is settled is a separate question — see ProvisionStatus in docs/TDD.md §6.
  */
 export function deriveStatus(action: string, type: string): Status {
+  // A procedural notice is neither proposed, final, nor amended. Checked first: notices
+  // often carry no `action` at all, and the fallbacks below would call them final.
+  if (type === "Notice") return "notice";
+
   const a = action.trim().toLowerCase().replace(/\.$/, "");
   if (a.includes("rehearing")) return "amended";
   if (a.includes("notice of proposed rulemaking") || a.startsWith("proposed rule")) {

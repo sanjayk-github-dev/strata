@@ -28,7 +28,12 @@ import {
 } from "../src/pipeline/index.js";
 import type { ParsedDocument } from "../src/pipeline/index.js";
 
-const STATUS_LABEL = { proposed: "PROPOSED", final: "FINAL", amended: "AMENDED" } as const;
+const STATUS_LABEL: Record<string, string> = {
+  proposed: "PROPOSED",
+  final: "FINAL",
+  amended: "AMENDED",
+  notice: "NOTICE",
+};
 
 function summarize(doc: ParsedDocument): void {
   const body = bodyParagraphs(doc);
@@ -37,7 +42,7 @@ function summarize(doc: ParsedDocument): void {
     (s) => s.depth === 1 && /^Appendix\s/i.test(s.headingPath[0] ?? ""),
   );
 
-  console.log(`\n  ${doc.meta.frDocNumber}  ${STATUS_LABEL[doc.meta.status]}`);
+  console.log(`\n  ${doc.meta.frDocNumber}  ${STATUS_LABEL[doc.meta.status] ?? doc.meta.status}`);
   console.log(`  ${doc.meta.title.slice(0, 90)}`);
   console.log(`  ${doc.meta.publicationDate} · ${doc.meta.pageLength ?? "?"}pp · ${doc.meta.action}`);
   console.log(`  convention: ${doc.conventionId ?? "(none registered for this agency)"}`);
@@ -158,7 +163,7 @@ async function main(): Promise<void> {
 
   console.log(`\n  ${input} — ${versions.length} published version(s)\n`);
   for (const v of versions) {
-    const label = STATUS_LABEL[v.status].padEnd(8);
+    const label = (STATUS_LABEL[v.status] ?? v.status).padEnd(8);
     console.log(
       `    ${v.publicationDate}  ${label} ${v.frDocNumber}  ` +
         `${String(v.pageLength ?? "?").padStart(4)}pp  ${v.title.slice(0, 58)}`,

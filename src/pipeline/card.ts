@@ -43,6 +43,10 @@ export function deriveProvisionStatus(
   if (disposition === "unclassified") return "unknown";
 
   switch (documentStatus) {
+    case "notice":
+      // A procedural notice carries no provisions to have a status.
+      return "unknown";
+
     case "proposed":
       // A proposed rule proposes; nothing in it binds yet.
       return "proposed";

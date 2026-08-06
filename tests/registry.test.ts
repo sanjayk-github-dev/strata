@@ -70,6 +70,10 @@ describe("status derivation", () => {
     ["Final rule.", "Rule", "final"],
     ["Final order.", "Rule", "final"],
     ["Order on rehearing and clarification.", "Rule", "amended"],
+    // A procedural notice is none of proposed/final/amended. Before this, notices fell
+    // through to "final" — RM21-17 showed six of them badged as final rules.
+    ["", "Notice", "notice"],
+    ["Notice of technical conference.", "Notice", "notice"],
   ])("%s → %s", (action, type, expected) => {
     expect(deriveStatus(action, type)).toBe(expected);
   });

@@ -354,6 +354,11 @@ describe("provision-level status derivation", () => {
     expect(deriveProvisionStatus(status, disposition)).toBe(expected);
   });
 
+  it("a procedural notice has no provisions to give a status", () => {
+    expect(deriveProvisionStatus("notice", undefined)).toBe("unknown");
+    expect(deriveProvisionStatus("notice", undefined, { textualChange: true })).toBe("unknown");
+  });
+
   it("an unclassified disposition yields unknown, never a confident status", () => {
     for (const s of ["proposed", "final", "amended"] as Status[]) {
       expect(deriveProvisionStatus(s, "unclassified")).toBe("unknown");
