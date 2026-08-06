@@ -42,6 +42,26 @@ export interface XmlParseResult {
 const SKIP_CONTENT = new Set(["PRTPAGE"]);
 
 /**
+ * Footnote reference markers, suppressed from body prose only.
+ *
+ * `<SU>` holds a superscript. In body text it is a footnote *reference* — the small
+ * raised number — and emitting it splices a digit into the middle of a sentence:
+ *
+ *   "...our finding in Order No. 2023 54 that the existing pro forma..."
+ *                                    ^^ footnote marker, not prose
+ *
+ * That is the same problem as PRTPAGE, and it has a direct product cost. A model asked to
+ * quote a supporting passage reads through the marker, as a human would, and returns
+ * clean prose — which then fails byte-for-byte verification against our own text. Correct
+ * answers were being rejected, depressing the grounding rate, which is the most robust
+ * trust signal we have. Measured at 1,246 occurrences in body prose in a single document.
+ *
+ * Inside `<FTNT>` the same tag holds the footnote's own number, which *is* legitimate
+ * content there — so the suppression is scoped to body prose.
+ */
+const FOOTNOTE_MARKER = "SU";
+
+/**
  * Block-level tags. A newline is emitted when they close so that paragraph and heading
  * boundaries survive into the plain text — line structure is load-bearing for the
  * paragraph-numbering regex, which is anchored at start-of-content.
@@ -81,7 +101,10 @@ export function parseFrXml(xml: string): XmlParseResult {
     const attrs: Record<string, string> = {};
     for (const [k, v] of Object.entries(node.attributes)) attrs[k] = String(v);
 
-    if (skipDepth > 0 || SKIP_CONTENT.has(tag)) skipDepth++;
+    // Suppress a footnote reference marker only when it interrupts body prose; inside a
+    // footnote the same tag carries that footnote's own number, which belongs there.
+    const isBodyFootnoteMarker = tag === FOOTNOTE_MARKER && !ancestry.includes("FTNT");
+    if (skipDepth > 0 || SKIP_CONTENT.has(tag) || isBodyFootnoteMarker) skipDepth++;
 
     const index = elements.length;
     elements.push({

@@ -32,8 +32,22 @@ interface NormalizedIndex {
 
 const normalizedCache = new WeakMap<ParsedDocument, NormalizedIndex>();
 
+/**
+ * Whitespace, defined once for both the index and the search term.
+ *
+ * These must agree exactly or normalized matching breaks silently. They did not: the
+ * index used a hand-listed set (space, newline, tab, CR, FF) while `collapseWhitespace`
+ * used the regex `\s`, which additionally matches Unicode spaces. Federal Register text
+ * contains U+2009 THIN SPACE, so the index kept it verbatim while the needle collapsed it
+ * to U+0020 — and a correct quote spanning that character could never be located.
+ *
+ * The failure was invisible: it looked like the model had fabricated a quote.
+ *
+ * `trim()` removes exactly the set `\s` matches, so deriving the predicate from it keeps
+ * the two definitions from drifting apart again.
+ */
 function isSpace(ch: string): boolean {
-  return ch === " " || ch === "\n" || ch === "\t" || ch === "\r" || ch === "\f";
+  return ch.trim() === "";
 }
 
 /**

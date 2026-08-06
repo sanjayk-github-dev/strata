@@ -60,6 +60,21 @@ describe("mixed content keeps offsets exact", () => {
 });
 
 describe("projection rules", () => {
+  it("suppresses footnote reference markers from body prose", () => {
+    // <SU> in body text is a footnote reference — the small raised number. Emitting it
+    // splices a digit into the middle of a sentence, so a model quoting the passage
+    // faithfully produces text that cannot be found in our own source. Correct answers
+    // were being rejected as fabrications. 1,246 occurrences in one real document.
+    const t = text("<R><SUPLINF><P>in Order No. 2023<SU>54</SU> that the existing text</P></SUPLINF></R>");
+    expect(t).toContain("in Order No. 2023 that the existing text");
+    expect(t).not.toContain("54");
+  });
+
+  it("keeps <SU> inside footnotes — there it is the footnote's own number", () => {
+    const t = text("<R><SUPLINF><FTNT><P><SU>54</SU> See Order No. 2003.</P></FTNT></SUPLINF></R>");
+    expect(t).toContain("54");
+  });
+
   it("suppresses page-break content entirely", () => {
     // <PRTPAGE P="27123"/> carries a page number that is not part of the prose. Emitting
     // it would inject digits mid-sentence and corrupt quotes.
