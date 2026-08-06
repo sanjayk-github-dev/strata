@@ -443,6 +443,34 @@ gating.
 | Verification failure suppresses, never downgrades (**I2**) | exact |
 | Citation to a nested section resolves to the correct section | exact |
 
+**Two design decisions made during implementation:**
+
+**1. Two verification paths, because models do not produce character offsets.** Asking a
+model for a span is unreliable; asking it to reproduce text is not. So the practical
+flow is `locateQuote(doc, quote)` — the model supplies a quote, **code finds it and
+constructs the span**. A quote appearing nowhere is fabricated and rejected. A quote
+appearing more than once is *ambiguous*: real text, but not a citation, since it does not
+identify a location — reported as such rather than silently resolved to the first hit.
+`verifyCitation(doc, citation)` remains for citations the pipeline builds itself (Phase 4
+redline edits, Phase 3 determination blocks).
+
+**2. Whitespace tolerance, bounded and justified.** Source text carries newlines and
+indentation from the XML — `"non-refundable \n        application fee"` — so requiring
+byte-identical quotes would reject faithful quotations. Verification therefore has exactly
+two tiers, `exact` and `normalized` (whitespace runs collapsed), and **no fuzzy tier**.
+Collapsing runs cannot merge or split words — `normalize("a b")` is `"a b"`, never
+`"ab"` — so a changed word, a deleted space, or a `shall`→`may` swap still rejects. All
+three are asserted.
+
+**Section containment is checked, not assumed.** A citation naming one section while
+pointing into another is rejected (`section-mismatch`). This is the runtime counterpart to
+Phase 1's structural fix for the nested-appendix hazard: Phase 1 makes the ids distinct,
+Phase 2 refuses citations whose span and section disagree.
+
+**Result:** 40 Phase 2 tests. The CLI now reports a citation verification rate per
+document (FR13) — `693/693 verified (100.0%)` on Order No. 2023-A. This is deterministic
+instrumentation, not an eval: it needs no labeled data and no model.
+
 **Risk retired:** the trust keystone.
 
 ---

@@ -82,6 +82,122 @@ export interface ParsedDocument {
   conventionId: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Citation and claim model (docs/TDD.md §6). Schema frozen in Phase 2 so later
+// phases fill fields rather than reshape them.
+// ---------------------------------------------------------------------------
+
+/**
+ * A verifiable pointer into a source document.
+ *
+ * `span` and `quote` are deliberately redundant: verification checks they agree.
+ * A fabricated quote will not match the text at the span; a fabricated span will not
+ * contain the quote. Either inconsistency is a rejection.
+ */
+export interface Citation {
+  frDocNumber: string;
+  sectionId: string;
+  paragraphNumber: number | null;
+  span: [number, number];
+  quote: string;
+}
+
+/**
+ * How closely a quote matched its source.
+ *
+ * `exact` is byte-identical. `normalized` differs only in whitespace runs — the source
+ * text carries newlines and indentation from the XML, so requiring byte-identical
+ * quotes from a model would reject faithful quotations. Whitespace collapse cannot
+ * change words, so it is safe; nothing beyond it is permitted. There is deliberately
+ * no fuzzy tier.
+ */
+export type MatchKind = "exact" | "normalized";
+
+export type VerificationFailure =
+  | "not-found"
+  | "ambiguous"
+  | "section-mismatch"
+  | "span-mismatch"
+  | "out-of-bounds"
+  | "empty-quote";
+
+export type VerificationResult =
+  | { ok: true; match: MatchKind; citation: Citation }
+  | { ok: false; reason: VerificationFailure; detail: string; occurrences?: number };
+
+export type Materiality = "material" | "clarifying" | "editorial" | "undecided";
+
+export type Disposition =
+  | "affirmed"
+  | "clarified"
+  | "modified"
+  | "set-aside"
+  | "sustained"
+  | "unclassified";
+
+/**
+ * Provision-level draft/final status.
+ *
+ * Document metadata settles the *document's* status; it says nothing about whether a
+ * given provision inside it is settled. A rehearing order is typed `Rule`, yet
+ * provisions within it may be affirmed, newly modified, or reopened.
+ */
+export type ProvisionStatus =
+  | "proposed"
+  | "adopted"
+  | "settled"
+  | "reopened"
+  | "unknown";
+
+export type Effect =
+  | "new"
+  | "strengthened"
+  | "relaxed"
+  | "clarified-no-change"
+  | "removed"
+  | "unknown";
+
+export type Confidence = "high" | "medium" | "low";
+
+/** A discrete edit extracted from redlined regulatory text (T3 only). */
+export interface Edit {
+  id: string;
+  sectionId: string;
+  kind: "addition" | "deletion";
+  text: string;
+  citation: Citation;
+  materiality: Materiality;
+  decidedBy: "rule" | "model";
+  ruleId?: string;
+}
+
+/** A decision block from the reasoning section (T2 only). */
+export interface Determination {
+  id: string;
+  headingPath: string[];
+  disposition: Disposition;
+  crossRefs: string[];
+  citation: Citation;
+}
+
+/** The atomic unit of review. Schema frozen in Phase 2. */
+export interface ChangeCard {
+  id: string;
+  frDocNumber: string;
+  title: string;
+  /** Empty for a determination-only card. */
+  edits: Edit[];
+  /** Absent for a redline-only card. */
+  determination?: Determination;
+  effect: Effect;
+  provisionStatus: ProvisionStatus;
+  /** Model prose. Present only when its citation verifies. */
+  rationale?: string;
+  citations: Citation[];
+  confidence: Confidence;
+  escalated: boolean;
+}
+
 /** A resolved user input: either a whole docket or a single document. */
 export type ResolvedInput =
   | { kind: "docket"; docketId: string }

@@ -10,8 +10,11 @@
 import {
   analyzeDocument,
   bodyParagraphs,
+  citeParagraph,
+  gateClaims,
   resolveVersions,
   UnsupportedSourceError,
+  type Claim,
 } from "../src/pipeline/index.js";
 import type { ParsedDocument } from "../src/pipeline/index.js";
 
@@ -41,6 +44,20 @@ function summarize(doc: ParsedDocument): void {
   for (const n of doc.capabilityNotes) {
     console.log(`    ${n.available ? "✓" : "·"} ${n.tier}  ${n.reason}`);
   }
+
+  // Citation self-check (FR13). Every paragraph is cited and re-verified against source.
+  // Deterministic instrumentation — no labeled data, no model involved.
+  const claims: Claim[] = [];
+  for (let i = 0; i < doc.paragraphs.length; i++) {
+    const c = citeParagraph(doc, i);
+    if (c) claims.push({ text: `¶${c.paragraphNumber}`, citation: c });
+  }
+  const gate = gateClaims(doc, claims);
+  const pct = (gate.verificationRate * 100).toFixed(1);
+  console.log(
+    `  citations: ${gate.passed.length}/${claims.length} verified (${pct}%)` +
+      (gate.suppressed.length > 0 ? ` · ${gate.suppressed.length} suppressed` : ""),
+  );
 }
 
 async function main(): Promise<void> {

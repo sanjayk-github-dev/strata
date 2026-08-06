@@ -14,6 +14,25 @@ export * from "./types.js";
 export { bodyParagraphs, buildDocument } from "./document.js";
 export { deriveStatus, enumerateDocket, fetchDocumentMeta, resolveInput } from "./fr-api.js";
 export { findConvention, FERC_RULEMAKING } from "./registry.js";
+export {
+  citeParagraph,
+  citeSpan,
+  collapseWhitespace,
+  gateClaims,
+  locateQuote,
+  sectionAtOffset,
+  sectionById,
+  verifyCitation,
+  type Claim,
+  type GateOutcome,
+  type LocateOptions,
+} from "./citation.js";
+export {
+  deriveConfidence,
+  deriveProvisionStatus,
+  requiresEscalation,
+  type ConfidenceInputs,
+} from "./card.js";
 
 export interface PipelineOptions {
   cache?: CacheStore;

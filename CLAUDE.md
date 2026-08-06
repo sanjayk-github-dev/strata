@@ -14,9 +14,10 @@ that constrain implementation choices.
 
 ## Current state
 
-**Phase 1 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
-document model with sections/paragraphs/spans. 69 tests passing. Phases 2–8 not started — no citation
-verifier, no redline extraction, no classification, no web app yet.
+**Phases 1–2 complete** (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
+document model with sections/paragraphs/spans, and the citation model + verifier. 110 tests passing.
+Phases 3–8 not started — no determination extraction, no redline parsing, no classification, no web
+app yet.
 
 ## Commands
 
@@ -83,6 +84,17 @@ The preamble is organized in repeating `Requests for Rehearing and Clarification
 heading pairs, so determination blocks are locatable structurally. Preamble paragraphs cite operative
 section numbers explicitly, which makes much of the join deterministic too.
 
+### Citation rules (non-negotiable)
+
+- **Never display a claim whose citation fails verification.** Suppress it. A failed citation is a
+  rejected claim, not a low-confidence one. `gateClaims()` enforces this.
+- **Model output goes through `locateQuote()`, not hand-built spans.** Models reproduce text reliably
+  and character offsets unreliably, so the model supplies a quote and code computes the span.
+- **Ambiguity is not resolved silently.** A quote occurring more than once is reported as `ambiguous`,
+  never resolved to the first hit.
+- **Whitespace tolerance is the only tolerance.** `exact` and `normalized` are the sole match tiers;
+  there is deliberately no fuzzy matching. Collapsing whitespace cannot change words.
+
 ### The deterministic / LLM boundary
 
 **Design principle: the LLM proposes, deterministic code disposes.** Every model output is either
@@ -124,6 +136,8 @@ legitimately differ, so surface disagreement rather than resolving it silently.
 | `src/pipeline/registry.ts` | Agency conventions as data. **Start here when adding an agency** |
 | `src/pipeline/document.ts` | Section/paragraph construction, capability detection |
 | `src/pipeline/xml.ts` | FR XML → plain text with element spans |
+| `src/pipeline/citation.ts` | **The trust keystone** — verification, quote location, display gate |
+| `src/pipeline/card.ts` | ChangeCard assembly: provision status and confidence derivation |
 | `data/manifest.yaml` | Verification set: 7 documents with measured tiers, counts, redline fixtures |
 | `scripts/verify_manifest.py` | Data-drift guard against the live API (pending TS port) |
 
