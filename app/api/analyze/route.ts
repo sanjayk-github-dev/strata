@@ -13,6 +13,7 @@ import {
   analyzeDocument,
   buildBriefing,
   CATEGORY_LABEL,
+  CATEGORY_GLOSS,
   generateStatement,
   classifyDisposition,
   classifyEdits,
@@ -300,6 +301,7 @@ export async function GET(request: Request): Promise<Response> {
             determinationCount: determinations.length,
             redline: { available: !!rl.region, reason: rl.unavailableReason ?? null },
             categories: CATEGORY_LABEL,
+            categoryGloss: CATEGORY_GLOSS,
             byCategory: briefing.byCategory,
             editorialOnlyProvisions: briefing.editorialOnlyProvisions,
             changes: briefing.changes.map((c) => ({

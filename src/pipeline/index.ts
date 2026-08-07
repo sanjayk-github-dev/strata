@@ -15,6 +15,7 @@ export {
   buildBriefing,
   categorise,
   CATEGORY_LABEL,
+  CATEGORY_GLOSS,
   CATEGORY_ORDER,
   CATEGORY_SIGNALS,
   type Briefing,

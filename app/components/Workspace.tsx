@@ -114,6 +114,7 @@ interface Analysis {
   determinationCount: number;
   provisionsChanged: number;
   categories: Record<string, string>;
+  categoryGloss: Record<string, string>;
   byCategory: Record<string, number>;
   editorialOnlyProvisions: number;
   redline: { available: boolean; reason: string | null };
@@ -454,6 +455,7 @@ function Result({
               })()}
             </span>
           </h3>
+          <p className="gloss">{analysis.categoryGloss[category]}</p>
           {items.map((c) => (
             <ChangeView key={c.id} change={c} docNumber={docNumber} />
           ))}
@@ -555,11 +557,22 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
       {change.edits.length > 0 && (
         <div className="rl">
           <div className="lbl">What changed</div>
-          {change.edits.map((e, i) => (
-            <span key={i}>
-              {e.kind === "deletion" ? <del>{e.text}</del> : <ins>{e.text}</ins>}
-              {e.repeats > 1 && <span className="ctx"> ×{e.repeats}</span>}{" "}
-            </span>
+          {pairEdits(change.edits).map((row, i) => (
+            <div key={i} className="rlrow">
+              {row.from && (
+                <del>
+                  {row.from.text}
+                  {row.from.repeats > 1 && <span className="ctx"> ×{row.from.repeats}</span>}
+                </del>
+              )}
+              {row.from && row.to && <span className="arrow">→</span>}
+              {row.to && (
+                <ins>
+                  {row.to.text}
+                  {row.to.repeats > 1 && <span className="ctx"> ×{row.to.repeats}</span>}
+                </ins>
+              )}
+            </div>
           ))}
           {change.revisionCount > change.edits.length && (
             <div className="sub" style={{ margin: ".4rem 0 0" }}>
@@ -656,4 +669,29 @@ function Segments({
       {trim === "end" && truncated && <span className="ctx">…</span>}
     </>
   );
+}
+
+/**
+ * Pair each deletion with the addition that replaces it.
+ *
+ * A substitution is printed as two adjacent pieces of markup, and rendered in sequence it
+ * reads as a run-on: "Feasibility Studies Cluster Study Interconnection Feasibility ×7
+ * Cluster ×6 timeline as listed in Transmission Provider's LGIP ×3 …". Nothing tells the
+ * reader which new text replaced which old text. One substitution per row does.
+ */
+function pairEdits(edits: CardEdit[]): Array<{ from?: CardEdit; to?: CardEdit }> {
+  const rows: Array<{ from?: CardEdit; to?: CardEdit }> = [];
+  for (let i = 0; i < edits.length; i++) {
+    const cur = edits[i]!;
+    const next = edits[i + 1];
+    if (cur.kind === "deletion" && next?.kind === "addition") {
+      rows.push({ from: cur, to: next });
+      i++;
+    } else if (cur.kind === "deletion") {
+      rows.push({ from: cur });
+    } else {
+      rows.push({ to: cur });
+    }
+  }
+  return rows;
 }

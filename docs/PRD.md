@@ -227,12 +227,16 @@ consequence each change carries and ordered so that the costliest thing to miss 
 
 | Group | Contains |
 |---|---|
-| **Deadlines and timing** | Filing windows, response periods, processing times |
-| **Fees, deposits and penalties** | Amounts owed, refundability, security requirements |
-| **Thresholds and eligibility** | Capacity limits, voltage levels, qualifying criteria |
+| **Deadlines and time limits** | Provisions whose time requirements changed — how long a step may take, or when the clock starts |
+| **Fees, deposits and penalties** | Amounts owed, deposits and security, refundability |
+| **Thresholds and eligibility** | Capacity limits, voltage levels, qualifying criteria — the line between covered and not |
 | **Who must do what** | Obligations moving between parties |
-| **Defined terms** | Changes to the vocabulary the rest of the document is written in |
+| **Defined terms** | Changes to a term that carries into every other provision using it |
 | **Other changes** | Everything else that changed substantively |
+
+Each group states in a sentence what it contains. A two-word heading that a reader has to guess at
+is a defect: "Deadlines and timing" holds *provisions whose time requirements changed*, which is not
+the same thing as a list of dates, and nothing on the page had said so.
 
 The unit is the provision, not the edit and not the decision block. A reader tracks "§3.5.2.1
 Processing Time changed", not "edit 1,406 was an addition" — and a provision is the level at which

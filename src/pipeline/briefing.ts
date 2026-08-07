@@ -60,12 +60,35 @@ export const CATEGORY_ORDER: ImpactCategory[] = [
 ];
 
 export const CATEGORY_LABEL: Record<ImpactCategory, string> = {
-  deadline: "Deadlines and timing",
+  deadline: "Deadlines and time limits",
   money: "Fees, deposits and penalties",
   threshold: "Thresholds and eligibility",
   obligation: "Who must do what",
   definition: "Defined terms",
   other: "Other changes",
+};
+
+/**
+ * What each group contains, in a sentence.
+ *
+ * A reader asked whether every card under "Deadlines and timing" was a deadline, and what
+ * "timing" meant. Both are fair questions about a two-word heading: the group holds
+ * *provisions whose time requirements changed*, which is not the same as a list of dates,
+ * and nothing on the page said so. A category label that needs explaining should carry
+ * the explanation.
+ */
+export const CATEGORY_GLOSS: Record<ImpactCategory, string> = {
+  deadline:
+    "Provisions whose time requirements changed — how long a step may take, or when the clock starts.",
+  money:
+    "Provisions changing an amount owed, a deposit or security requirement, or whether money is refundable.",
+  threshold:
+    "Provisions changing a size, capacity, or eligibility limit — the line between being covered and not.",
+  obligation:
+    "Provisions moving a duty between parties, or adding and removing one.",
+  definition:
+    "Provisions changing a defined term, which carries into every other provision that uses it.",
+  other: "Substantive changes that do not fall into the groups above.",
 };
 
 /**

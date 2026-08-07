@@ -15,6 +15,8 @@ import {
   categorise,
   CATEGORY_ORDER,
   CATEGORY_SIGNALS,
+  CATEGORY_LABEL,
+  CATEGORY_GLOSS,
   classifyEdits,
   extractDeterminations,
   extractRedline,
@@ -88,10 +90,15 @@ describe("categorisation", () => {
     expect(categorise("facilities of at least 20 MW", "3.1")).toBe("threshold");
   });
 
-  it("every category has a place in the display order", () => {
+  it("every category has a place in the display order, a label and a gloss", () => {
+    // A reader asked whether every card under "Deadlines and timing" was a deadline, and
+    // what "timing" meant. A two-word heading that needs explaining must carry the
+    // explanation, so a label without a gloss is a defect rather than a style choice.
     expect(new Set(CATEGORY_ORDER).size).toBe(CATEGORY_ORDER.length);
     for (const c of ["deadline", "money", "threshold", "obligation", "definition", "other"]) {
       expect(CATEGORY_ORDER).toContain(c);
+      expect(CATEGORY_LABEL[c as keyof typeof CATEGORY_LABEL]).toBeTruthy();
+      expect(CATEGORY_GLOSS[c as keyof typeof CATEGORY_GLOSS]?.length ?? 0).toBeGreaterThan(30);
     }
   });
 });

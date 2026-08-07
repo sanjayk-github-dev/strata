@@ -96,3 +96,7 @@ button.link:disabled { text-decoration:none; opacity:.6 }
 .reads .passage:last-of-type { margin-bottom:0 }
 .lbl { font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:0 0 .35rem }
 .rl .lbl { margin-bottom:.3rem }
+.gloss { margin:-.15rem 0 .7rem; font-size:.78rem; color:var(--mut); line-height:1.5 }
+.rlrow { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; margin-bottom:.25rem }
+.rlrow:last-child { margin-bottom:0 }
+.rlrow .arrow { color:var(--mut); flex:none }
