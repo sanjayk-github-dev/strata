@@ -213,8 +213,7 @@ export default function Workspace() {
 
   return (
     <main>
-      <h1>Strata</h1>
-      <div className="sub">Citation-grade regulatory change intelligence</div>
+      <h1>Citation-grade regulatory change intelligence</h1>
 
       <form onSubmit={lookup}>
         <input
@@ -243,8 +242,6 @@ export default function Workspace() {
             a <b>federalregister.gov URL</b> for a specific document
           </li>
         </ul>
-        Works for any federal agency that publishes to the Federal Register, not only FERC.
-        eLibrary and state commission links are not supported — those are not published there.
       </div>
 
       {error && (

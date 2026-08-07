@@ -12,7 +12,7 @@
 html,body { padding:0; margin:0; background:var(--bg); color:var(--fg);
   font:15px/1.6 ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif }
 main { max-width:64rem; margin:0 auto; padding:2rem 1.25rem 5rem }
-h1 { font-size:1.3rem; margin:0 0 .2rem }
+h1 { font-size:1.05rem; font-weight:600; margin:0 0 .9rem }
 .sub { color:var(--mut); font-size:.85rem; margin-bottom:1.5rem }
 .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px;
   padding:1rem 1.1rem; margin-bottom:1rem }
@@ -67,7 +67,7 @@ a { color:inherit }
 .stages b { font-weight:500 }
 .stages .detail { color:var(--mut) }
 .dates { display:flex; gap:1.25rem; flex-wrap:wrap; align-items:baseline;
-  border-left:3px solid var(--mat); padding:.4rem .75rem; margin:0 0 .9rem;
+  border-left:3px solid var(--mat); padding:.35rem .75rem; margin:0 0 .55rem;
   background:var(--bg); border-radius:0 6px 6px 0 }
 .deadline b { color:var(--mat) }
 .abstract { font-size:.85rem; line-height:1.65; background:var(--bg);
@@ -112,7 +112,7 @@ button.link:disabled { text-decoration:none; opacity:.6 }
   border-bottom:1px solid var(--card) }
 .tab.on b { color:var(--fg) }
 section[role="tabpanel"] { padding-top:.9rem }
-.dochead { display:flex; align-items:flex-start; gap:1rem; margin-bottom:.7rem }
+.dochead { display:flex; align-items:flex-start; gap:1rem; margin-bottom:.45rem }
 .dochead > div:first-child { flex:1; min-width:0 }
 .dochead button { flex:none }
 .line { font-size:.82rem; color:var(--mut); margin-top:.7rem }
