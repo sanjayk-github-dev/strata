@@ -11,8 +11,10 @@
  */
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { writableCacheDir } from "../cache/dir.js";
 
 export type Verdict = "agree" | "disagree" | "recategorize";
 
@@ -31,11 +33,36 @@ export interface FeedbackStore {
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PATH = resolve(HERE, "../../data/feedback.jsonl");
+const REPO_DATA_DIR = resolve(HERE, "../../data");
+
+/**
+ * Resolved at first use, and writable by construction.
+ *
+ * On a read-only deployment this lands in a per-instance temp directory, which means
+ * feedback survives the session and not the instance. That is a real limitation and it is
+ * stated rather than hidden: `feedbackDurability()` reports it, and the deployment notes
+ * say a `DATABASE_URL`-backed store is what makes it durable.
+ */
+function defaultPath(): string {
+  return join(writableCacheDir(REPO_DATA_DIR), "feedback.jsonl");
+}
+
+/** Whether feedback written here outlives the process. */
+export function feedbackDurability(): "durable" | "ephemeral" {
+  return defaultPath().startsWith(REPO_DATA_DIR) ? "durable" : "ephemeral";
+}
 
 /** Append-only JSONL. Adequate for local review; Postgres for multi-user. */
 export class FileFeedbackStore implements FeedbackStore {
-  constructor(private readonly path: string = DEFAULT_PATH) {}
+  private readonly explicit: string | undefined;
+
+  constructor(path?: string) {
+    this.explicit = path;
+  }
+
+  private get path(): string {
+    return this.explicit ?? defaultPath();
+  }
 
   async add(input: Omit<FeedbackRecord, "id" | "createdAt">): Promise<FeedbackRecord> {
     const record: FeedbackRecord = {

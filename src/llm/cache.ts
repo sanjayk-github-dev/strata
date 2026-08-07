@@ -11,16 +11,26 @@
  * let an ordinary run silently rewrite a fixture a test depends on.
  */
 
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { writableCacheDir } from "../cache/dir.js";
 import { CassetteLlmClient } from "./cassette.js";
 import { HttpLlmClient } from "./http.js";
 import { resolveLlmConfig } from "./config.js";
 import type { LlmClient } from "./types.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const LLM_CACHE_DIR = resolve(HERE, "../../data/cache/llm");
+const REPO_CACHE_DIR = resolve(HERE, "../../data/cache");
+
+/**
+ * Resolved at first use so a read-only deployment falls back to a temp directory rather
+ * than failing every model call. Per-instance and ephemeral there, which costs repeat
+ * spend on a cold instance but never a failed request.
+ */
+export function llmCacheDir(): string {
+  return join(writableCacheDir(REPO_CACHE_DIR), "llm");
+}
 
 /**
  * A cached model client, or null when no provider is configured.
@@ -32,5 +42,5 @@ export function cachedLlmFromEnv(): LlmClient | null {
   const cfg = resolveLlmConfig();
   if (!cfg) return null;
   const live = new HttpLlmClient(cfg);
-  return new CassetteLlmClient(live.label, { live, record: true, dir: LLM_CACHE_DIR });
+  return new CassetteLlmClient(live.label, { live, record: true, dir: llmCacheDir() });
 }

@@ -1203,6 +1203,45 @@ Hobby is restricted to personal, non-commercial use.
 **Design rule from the 4.5 MB cap:** API routes return briefing entries with bounded passages and
 reference source spans by offset. Full document text is never embedded in a response; the client requests spans on demand.
 
+### What deployment actually required
+
+Three things worked locally and would have failed only once deployed, which is the worst
+shape for a bug.
+
+**The filesystem is read-only.** `FileCache` wrote to the repo's `data/cache`, and a serverless
+bundle cannot — the first `mkdir` throws `EROFS` and takes the analysis with it. The cache
+directory is now resolved by probing rather than fixed at build time (`STRATA_CACHE_DIR` → repo
+`data/cache` → system temp), and a failed write warns once and carries on. Every value in that
+cache is re-fetchable from the Federal Register API, so an unwritable cache costs a round trip
+and never correctness. The same applies to the model-response cache and the feedback store.
+
+**Feedback stops being durable.** In the temp directory it survives the session and not the
+instance. That is a real limitation, so `feedbackDurability()` reports it and `/api/health`
+surfaces it, rather than letting a reviewer's judgement disappear silently. A `DATABASE_URL`-backed
+store behind the same interface is what makes it durable; it is not built.
+
+**An open URL is an open wallet.** A deployed instance calls a paid model API with the operator's
+key on every uncached analysis, so a crawler that finds the URL can spend real money, repeatedly.
+Vercel's own protection does not fit the free tier — Vercel Authentication requires team members
+that a Hobby account cannot have, and Password Protection is a paid feature — so the gate is in the
+app: middleware, a shared passphrase in `SITE_PASSCODE`, and a cookie carrying an HMAC of it rather
+than the passphrase itself.
+
+The gate is a doorlock, not authentication. It gives no per-person identity and no audit trail, and
+it does not protect against anyone the passphrase was shared with. Middleware rather than per-route
+checks, because a route added later would otherwise be open by default — and the expensive route is
+the one that spends credits.
+
+### `/api/health`
+
+Reports the three things that are configuration rather than code, and that fail silently when
+wrong: whether the gate is armed, whether a model provider is configured, and whether writes
+survive the instance. Public by design — it names no secrets, only whether each is present.
+
+```json
+{"ok":true,"accessGate":"armed","modelProvider":{"configured":true,"model":"…"},"feedback":"ephemeral"}
+```
+
 ### Routes
 
 ```

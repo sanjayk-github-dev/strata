@@ -18,10 +18,12 @@ that constrain implementation choices.
 capability detection, document model, citation verifier, determination blocks (T2), redline
 extraction (T3), rule-tier materiality, model-tier classification (provider-agnostic), the
 provision-level briefing, the compliance filing deadline, and the Next.js review workspace.
-**378 tests passing**, including end-to-end tests against a real server.
+**389 tests passing**, including end-to-end tests against a real server.
 
-Vercel deployment is the remaining work — the app runs locally with no database, and
-`FileFeedbackStore` needs a Postgres implementation behind the same interface.
+Deployment-ready but not yet deployed: the production build passes, the caches fall back to a
+writable directory on a read-only filesystem, and a `SITE_PASSCODE` access gate protects the
+instance. Feedback is ephemeral in deployment until a `DATABASE_URL`-backed `FeedbackStore` is
+written behind the existing interface — `/api/health` reports which of these is true.
 
 ## Commands
 
@@ -31,7 +33,7 @@ npm run dev                         # web app at localhost:3000
 npm run analyze -- RM22-14          # pipeline only: version timeline + per-document analysis
 npm run analyze -- 2024-06563       # a single document; FR URLs also accepted
 npm run analyze -- 2024-06563 out/report   # …and write a static HTML review report
-npm test                            # all tests (378)
+npm test                            # all tests (389)
 npx vitest run tests/ingest.test.ts # a single test file
 npx vitest run -t "monotonic"       # a single test by name
 npm run typecheck
@@ -199,6 +201,9 @@ empty page.
 | `app/api/*/route.ts` | Thin callers over the pipeline: enumerate, analyse (streamed), source, feedback |
 | `app/components/Workspace.tsx` | The review UI — timeline, briefing tabs, in-place source, feedback |
 | `src/store/feedback.ts` | Append-only feedback; file-backed locally, behind an interface |
+| `src/auth/passcode.ts` + `middleware.ts` | Shared-passphrase gate. A doorlock, not authentication |
+| `src/cache/dir.ts` | Probes for a writable cache dir — serverless filesystems are read-only |
+| `app/api/health/route.ts` | Deploy self-check: gate armed? model configured? writes durable? |
 | `data/manifest.yaml` | Verification set: 7 documents with measured tiers, counts, redline fixtures |
 | `scripts/verify_manifest.py` | Data-drift guard against the live API (pending TS port) |
 
