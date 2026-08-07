@@ -141,6 +141,10 @@ describe("analysis stream (PRD W2)", () => {
     expect(f.material + f.editorial + f.undecided).toBe(f.totalEdits); // I1
     expect(result.verificationRate).toBe(1);
     expect(result.provisionsChanged).toBe(result.changes.length);
+    // The unit shown to the reader conserves too: a revision is a substitution or an
+    // insertion, an edit is one piece of markup, and a substitution is two of those.
+    const r = result.funnel.revisions;
+    expect(r.material + r.clarifying + r.editorial + r.undecided).toBe(result.funnel.totalGroups);
     expect(
       Object.values(result.byCategory as Record<string, number>).reduce((a, n) => a + n, 0),
     ).toBe(result.changes.length);
@@ -162,7 +166,9 @@ describe("analysis stream (PRD W2)", () => {
     // Determinations still carry: 66 decisions to review, which is exactly what a
     // redline-only tool would show as nothing at all.
     expect(result.changes).toHaveLength(66);
-    expect(result.changes.every((c: { editCount: number }) => c.editCount === 0)).toBe(true);
+    expect(result.changes.every((c: { revisionCount: number }) => c.revisionCount === 0)).toBe(
+      true,
+    );
   }, 180_000);
 });
 

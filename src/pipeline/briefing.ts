@@ -143,6 +143,14 @@ export interface ProvisionChange {
   /** Material if any constituent change is; otherwise needs-review, else clarifying. */
   priority: "material" | "needs-review" | "clarifying";
   edits: Edit[];
+  /**
+   * Revisions in this provision — one substitution, one insertion, one deletion.
+   *
+   * What a reader counts. `edits` holds the individual pieces of the agency's markup, and
+   * a substitution is two of those, so an edit count runs to roughly double what a person
+   * would say changed in the provision.
+   */
+  revisionCount: number;
   /** Determinations that direct a change to this provision — evidence, not organiser. */
   determinations: Determination[];
   provisionStatus: ProvisionStatus;
@@ -240,6 +248,7 @@ export function buildBriefing(
       category,
       priority,
       edits,
+      revisionCount: groups.length,
       determinations: dets,
       provisionStatus: deriveProvisionStatus(doc.meta.status, disposition, {
         textualChange: edits.length > 0,
@@ -293,6 +302,7 @@ export function buildBriefing(
       category,
       priority,
       edits: [],
+      revisionCount: 0,
       determinations: [det],
       provisionStatus: deriveProvisionStatus(doc.meta.status, det.disposition, {
         textualChange: false,
@@ -306,7 +316,10 @@ export function buildBriefing(
     (a, b) =>
       CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category) ||
       PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] ||
-      b.edits.length - a.edits.length,
+      // Tie-break on the unit the entry displays. Sorting on edits put a provision with
+      // one large inserted block above one with fifteen separate revisions, because the
+      // insert carried more pieces of markup.
+      b.revisionCount - a.revisionCount,
   );
 
   const allProvisions = new Set(

@@ -142,6 +142,21 @@ describe("briefing assembly", () => {
     }
   });
 
+  it("orders on the number it displays, not on pieces of markup", async () => {
+    // A provision with one large inserted block carries more markup than one with fifteen
+    // separate substitutions, and sorted above it while displaying a smaller number.
+    const d = await doc(DOCS.order2023);
+    const b = buildBriefing(d, extractDeterminations(d), classifyEdits(d, extractRedline(d).edits));
+
+    for (let i = 1; i < b.changes.length; i++) {
+      const prev = b.changes[i - 1]!;
+      const cur = b.changes[i]!;
+      if (prev.category === cur.category && prev.priority === cur.priority) {
+        expect(cur.revisionCount).toBeLessThanOrEqual(prev.revisionCount);
+      }
+    }
+  });
+
   it("counts every category and drops nothing (invariant I1)", async () => {
     const d = await doc(DOCS.order2023);
     const b = buildBriefing(d, extractDeterminations(d), classifyEdits(d, extractRedline(d).edits));

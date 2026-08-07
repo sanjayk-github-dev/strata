@@ -48,7 +48,7 @@ order (FERC Order No. 2023-A, 238 Federal Register pages):
 | Total words | **250,331** (roughly three novels) |
 | Reasoning section | 135,543 words across **683 numbered paragraphs** |
 | Redlined regulatory text | 114,788 words |
-| Discrete textual edits in the redline | **1,419** |
+| Revisions in the redline | **1,250** (1,419 individual brackets and italic runs) |
 | Edits that change a legal obligation | **68** — the rest are editorial or need expert judgement |
 
 The preceding order in the same proceeding is longer still, at 336 Federal Register pages. A team may
@@ -175,7 +175,7 @@ Supporting jobs:
    is not displayed.
 2. **Escalate rather than guess.** Low confidence is a first-class output. The product is permitted to
    say "this is ambiguous, here is the passage" and is never permitted to resolve ambiguity silently.
-3. **Show what was filtered out.** A user cannot trust a filter they cannot inspect. Reducing 1,419
+3. **Show what was filtered out.** A user cannot trust a filter they cannot inspect. Reducing 1,250
    edits to the 68 that carry legal effect is only credible if the other 1,363 remain one click
    away.
 4. **Be deterministic wherever the data allows.** Language models are used for judgment, not for facts
@@ -194,9 +194,9 @@ The core product motion is reduction with the reasoning left intact:
 ```
 one published version  (250,331 words)
         │
-        ├── regulatory text ──► 1,419 discrete edits ──►  61 carrying legal effect
-        │                                                925 editorial
-        │                                                433 needing expert judgement
+        ├── regulatory text ──► 1,250 revisions ──────►   48 carrying legal effect
+        │                                                858 editorial
+        │                                                344 needing expert judgement
         │
         └── reasoning ────────► 31 decision blocks ────► dispositions
                                           │

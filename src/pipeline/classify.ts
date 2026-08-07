@@ -255,6 +255,12 @@ export function applyResiduals(
     editorial: 0,
     undecided: 0,
   };
+  const revisions: Record<Materiality, number> = {
+    material: 0,
+    clarifying: 0,
+    editorial: 0,
+    undecided: 0,
+  };
   const byRule: Record<string, number> = {};
   const groups: ClassifiedGroup[] = [];
   const edits: Edit[] = [];
@@ -274,6 +280,7 @@ export function applyResiduals(
 
     groups.push(next);
     byRule[next.result.ruleId] = (byRule[next.result.ruleId] ?? 0) + 1;
+    revisions[next.result.materiality]++;
     for (const edit of next.group.edits) {
       counts[next.result.materiality]++;
       edits.push(
@@ -300,6 +307,7 @@ export function applyResiduals(
       clarifying: counts.clarifying,
       editorial: counts.editorial,
       undecided: counts.undecided,
+      revisions,
       // Coverage now means "settled by either tier", so it is reported, not conflated
       // with the rule tier's own share.
       ruleCoverage: total === 0 ? 0 : settled / total,

@@ -360,6 +360,14 @@ export interface ClassifiedGroup {
   beforeAfter: BeforeAfter;
 }
 
+/** Counts of one unit, by verdict. Must sum to that unit's total — invariant I1. */
+export interface FunnelCounts {
+  material: number;
+  clarifying: number;
+  editorial: number;
+  undecided: number;
+}
+
 export interface Funnel {
   totalEdits: number;
   totalGroups: number;
@@ -368,6 +376,16 @@ export interface Funnel {
   clarifying: number;
   editorial: number;
   undecided: number;
+  /**
+   * The same verdicts counted per revision, summing to totalGroups.
+   *
+   * A revision is what a reader counts — one substitution, one insertion. An edit is a
+   * single piece of the agency's markup, and a substitution is two of them, so edit
+   * counts run to roughly double what a reader would say changed. Both are kept: the
+   * edit counts are the conservation check over what was parsed, the revision counts are
+   * what a person is shown.
+   */
+  revisions: FunnelCounts;
   /** Share of edits decided without a model. Measured, never assumed. */
   ruleCoverage: number;
   /** How many groups each rule decided, for auditing the rule set. */
@@ -392,6 +410,12 @@ export function classifyEdits(doc: ParsedDocument, edits: readonly Edit[]): Mate
     editorial: 0,
     undecided: 0,
   };
+  const revisions: Record<Materiality, number> = {
+    material: 0,
+    clarifying: 0,
+    editorial: 0,
+    undecided: 0,
+  };
 
   const out: Edit[] = [];
 
@@ -399,6 +423,7 @@ export function classifyEdits(doc: ParsedDocument, edits: readonly Edit[]): Mate
     const result = classifyGroup(doc, group);
     classified.push({ group, result, beforeAfter: reconstruct(doc, group) });
     byRule[result.ruleId] = (byRule[result.ruleId] ?? 0) + 1;
+    revisions[result.materiality]++;
 
     for (const edit of group.edits) {
       counts[result.materiality]++;
@@ -423,6 +448,7 @@ export function classifyEdits(doc: ParsedDocument, edits: readonly Edit[]): Mate
       clarifying: counts.clarifying,
       editorial: counts.editorial,
       undecided: counts.undecided,
+      revisions,
       ruleCoverage: edits.length === 0 ? 0 : decided / edits.length,
       byRule,
     },

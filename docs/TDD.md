@@ -600,7 +600,19 @@ judged on the pair: `[A]` + `a` is a capitalisation fix, while `a[n]` + `non-ref
 a fee is. **Adjacency is measured in non-whitespace characters** — the source carries XML indentation,
 so roughly 25 raw characters separate that pair, and a raw-distance threshold splits it.
 
-**Measured:** Order No. 2023-A → 1,419 edits (490 additions, 929 deletions) in 1,250 logical groups.
+**Measured:** Order No. 2023-A → 1,419 edits (490 additions, 929 deletions) in 1,250 revisions.
+
+### The unit shown to the reader is the revision, not the edit
+
+An edit is one bracket or one italic run — one piece of the agency's markup. A substitution is two of
+them, so an edit count runs to roughly double what a person would say changed. A reader asked what
+"32 text changes" meant on §3.5.2.1 and the honest answer was: 32 pieces of markup behind **20
+revisions**, which is the number they were trying to arrive at.
+
+The funnel now carries both. Edit counts remain the conservation check over what was parsed (I1);
+revision counts, summing to `totalGroups`, are what the briefing, the report and the funnel bar
+display. Entries also sort on revisions, since sorting on edits placed a provision with one large
+inserted block above one with fifteen separate substitutions while displaying a smaller number.
 Order No. 2023 → 1,663 edits (1,194 / 469) in 694 groups.
 
 **Result:** 28 Phase 4 tests, 166 total. Every edit's citation verifies; all are emitted `undecided`
@@ -634,6 +646,8 @@ The open question this phase existed to answer.
 | Document | Edits | Groups | Material | Editorial | Undecided | **Rule coverage** |
 |---|---|---|---|---|---|---|
 | Order No. 2023-A | 1,419 | 1,250 | 61 | 925 | 433 | **69.5%** |
+
+The same document counted in revisions: **48 material · 858 editorial · 344 undecided**, summing to 1,250.
 | Order No. 2023 | 1,663 | 694 | 928 | 105 | 630 | **62.1%** |
 
 Rules decided the majority, and a real remainder — 433 and 630 edits — genuinely needs judgement. That

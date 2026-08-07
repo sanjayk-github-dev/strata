@@ -131,8 +131,12 @@ status, never whether a given provision is settled.
 
 ### Materiality is the actual problem
 
-Measured on Order 2023-A: of 1,419 parsed edits, 925 are editorial (750 groups are a bare `[the]`), 61 carry
-legal effect, and 303 need judgement. Separating them is the core intelligence task.
+Measured on Order 2023-A: of 1,250 revisions, 858 are editorial (750 are a bare `[the]`), 48 carry
+legal effect, and 344 need judgement. Separating them is the core intelligence task.
+
+A **revision** is the unit shown to the reader — one substitution, one insertion. An **edit** is one
+bracket or one italic run, so a substitution is two edits. The funnel carries both: edit counts are
+the I1 conservation check over what was parsed, revision counts are what the UI displays.
 
 **Rules must be certain, not usually right.** They classify *groups* (a `[A]`+`a` pair is only
 recognisable as capitalisation when seen together) by reconstructing before/after and testing

@@ -59,6 +59,26 @@ function classifyOne(body: string) {
   return { d, group: groups[0]!, result: classifyGroup(d, groups[0]!) };
 }
 
+describe("the funnel counts both units, and both conserve (I1)", () => {
+  it("revision counts sum to the group total, edit counts to the edit total", async () => {
+    const d = await doc(DOCS.order2023A);
+    const f = classifyEdits(d, extractRedline(d).edits).funnel;
+
+    expect(f.material + f.clarifying + f.editorial + f.undecided).toBe(f.totalEdits);
+    const r = f.revisions;
+    expect(r.material + r.clarifying + r.editorial + r.undecided).toBe(f.totalGroups);
+  });
+
+  it("revisions are fewer than edits, because a substitution is two pieces of markup", async () => {
+    // The distinction the reader asked about: "32 text changes" in one provision was 32
+    // brackets and italic runs, which is roughly double the 20 revisions a person would
+    // count there. Both numbers are real; only one is worth showing.
+    const d = await doc(DOCS.order2023A);
+    const f = classifyEdits(d, extractRedline(d).edits).funnel;
+    expect(f.totalGroups).toBeLessThan(f.totalEdits);
+  });
+});
+
 describe("before/after reconstruction", () => {
   it("deletions appear only in before, additions only in after", () => {
     const { d, group } = classifyOne('The fee is a[n] <E T="03">non-refundable</E> charge.');

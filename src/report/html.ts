@@ -48,9 +48,12 @@ function renderRedline(doc: ParsedDocument, g: ClassifiedGroup): string {
 }
 
 function funnelBar(m: MaterialityResult): string {
-  const f = m.funnel;
-  if (f.totalEdits === 0) return "";
-  const pct = (n: number) => ((n / f.totalEdits) * 100).toFixed(1);
+  // Drawn in revisions, the unit a reader counts. An edit is one bracket or one italic
+  // run, so a substitution is two of them and the edit total runs to roughly double.
+  const f = m.funnel.revisions;
+  const total = f.material + f.clarifying + f.editorial + f.undecided;
+  if (total === 0) return "";
+  const pct = (n: number) => ((n / total) * 100).toFixed(1);
   const seg = (cls: string, n: number, label: string) =>
     n === 0
       ? ""
@@ -190,7 +193,7 @@ export function renderReport(input: ReportInput): string {
     <div class="stat"><b>${doc.text.length.toLocaleString()}</b><span>characters</span></div>
     <div class="stat"><b>${doc.paragraphs.filter((p) => !p.isSeparateOpinion).length}</b><span>paragraphs</span></div>
     <div class="stat"><b>${determinations.length}</b><span>determinations</span></div>
-    <div class="stat"><b>${f.totalEdits}</b><span>redline edits</span></div>
+    <div class="stat"><b>${f.totalGroups}</b><span>revisions</span></div>
     <div class="stat"><b>${(verificationRate * 100).toFixed(1)}%</b><span>citations verified</span></div>
   </div>
   <ul class="caps">${caps}</ul>
@@ -200,9 +203,9 @@ ${
   f.totalEdits > 0
     ? `<div class="panel">
   <div class="stats">
-    <div class="stat"><b style="color:var(--mat)">${f.material}</b><span>material</span></div>
-    <div class="stat"><b style="color:var(--edi)">${f.editorial}</b><span>editorial</span></div>
-    <div class="stat"><b style="color:var(--und)">${f.undecided}</b><span>undecided</span></div>
+    <div class="stat"><b style="color:var(--mat)">${f.revisions.material}</b><span>material</span></div>
+    <div class="stat"><b style="color:var(--edi)">${f.revisions.editorial}</b><span>editorial</span></div>
+    <div class="stat"><b style="color:var(--und)">${f.revisions.undecided}</b><span>undecided</span></div>
     <div class="stat"><b>${(f.ruleCoverage * 100).toFixed(1)}%</b><span>decided by rule</span></div>
   </div>
   ${funnelBar(m)}

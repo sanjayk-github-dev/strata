@@ -65,7 +65,7 @@ interface Change {
   statementEvidence: string | null;
   disposition: string | null;
   determinationCount: number;
-  editCount: number;
+  revisionCount: number;
   edits: CardEdit[];
   citations: Array<{ span: [number, number]; sectionId: string }>;
 }
@@ -93,7 +93,15 @@ interface Analysis {
     children: Array<{ id: string; title: string }>;
     primary: boolean;
   }>;
-  funnel: { material: number; editorial: number; undecided: number; totalEdits: number; ruleCoverage: number };
+  funnel: {
+    material: number;
+    editorial: number;
+    undecided: number;
+    totalEdits: number;
+    ruleCoverage: number;
+    /** The same verdicts counted per revision — the unit shown to the reader. */
+    revisions: { material: number; clarifying: number; editorial: number; undecided: number };
+  };
   determinationCount: number;
   provisionsChanged: number;
   categories: Record<string, string>;
@@ -362,8 +370,8 @@ function Result({
             <span>determinations</span>
           </div>
           <div className="stat">
-            <b>{funnel.totalEdits.toLocaleString()}</b>
-            <span>text changes</span>
+            <b>{(funnel.revisions.material + funnel.revisions.undecided).toLocaleString()}</b>
+            <span>revisions to review</span>
           </div>
           <div className="stat">
             <b>
@@ -486,8 +494,6 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
     setFlagged(true);
   }, [change.id, docNumber]);
 
-  const shownEdits = change.edits.reduce((n, e) => n + e.repeats, 0);
-
   return (
     <div className="card">
       <h4 className={PRIORITY_CLASS[change.priority]}>
@@ -511,9 +517,9 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
           </span>
         )}
         <span style={{ marginLeft: "auto" }}>
-          {change.editCount === 0
+          {change.revisionCount === 0
             ? "no change to the regulatory text"
-            : `${change.editCount} marked change${change.editCount === 1 ? "" : "s"}`}
+            : `${change.revisionCount} revision${change.revisionCount === 1 ? "" : "s"}`}
         </span>
       </div>
 
@@ -525,10 +531,10 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
               {e.repeats > 1 && <span className="ctx"> ×{e.repeats}</span>}{" "}
             </span>
           ))}
-          {change.editCount > shownEdits && (
+          {change.revisionCount > change.edits.length && (
             <div className="sub" style={{ margin: ".4rem 0 0" }}>
-              Showing {shownEdits} of {change.editCount} marked changes in this provision.
-              Open the source to read them in context.
+              Showing part of {change.revisionCount} revisions in this provision. Open the
+              source to read them all in context.
             </div>
           )}
         </div>
@@ -538,7 +544,7 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
         <button className="ghost" onClick={showSource} disabled={loadingSrc}>
           {loadingSrc ? "Loading…" : source ? "Hide source" : "Show source"}
         </button>
-        {change.editCount === 0 && (
+        {change.revisionCount === 0 && (
           <span className="hint">The agency decided this without changing the text.</span>
         )}
         <button className="link" onClick={flag} disabled={flagged}>

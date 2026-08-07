@@ -149,7 +149,7 @@ export async function GET(request: Request): Promise<Response> {
         emit({
           stage: "redline",
           detail: rl.region
-            ? `${rl.edits.length.toLocaleString()} text changes found`
+            ? `${rl.edits.length.toLocaleString()} pieces of marked-up text found`
             : "This document publishes no marked-up text",
           done: true,
         });
@@ -158,9 +158,9 @@ export async function GET(request: Request): Promise<Response> {
         emit({
           stage: "rules",
           detail:
-            `${materiality.funnel.material} change an obligation · ` +
-            `${materiality.funnel.editorial} editorial only · ` +
-            `${materiality.funnel.undecided} need judgement`,
+            `${materiality.funnel.revisions.material} change an obligation · ` +
+            `${materiality.funnel.revisions.editorial} editorial only · ` +
+            `${materiality.funnel.revisions.undecided} need judgement`,
           done: true,
         });
 
@@ -282,7 +282,7 @@ export async function GET(request: Request): Promise<Response> {
               statementEvidence: c.statementEvidence ?? null,
               disposition: c.determinations[0]?.disposition ?? null,
               determinationCount: c.determinations.length,
-              editCount: c.edits.length,
+              revisionCount: c.revisionCount,
               edits: collapseRepeats(c.edits).slice(0, 8),
               citations: c.citations.slice(0, 4).map((x) => ({
                 span: x.span,
