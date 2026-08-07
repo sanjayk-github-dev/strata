@@ -392,6 +392,10 @@ command is the contract.
 Expected values come from direct measurement during design. **Exact** gates assert structure; **baseline**
 gates guard against drift and are established on first run.
 
+**Status (2026-08-06): phases 1–9 complete and running locally. 378 tests pass.** Deployment is the
+remaining work — §9 below is designed and unbuilt; the app runs with no database, and
+`FileFeedbackStore` needs a Postgres implementation behind its existing interface.
+
 ### Phase 1 — Ingestion, convention registry, capability detection
 
 **Builds:** docket/URL → FR API → document model (sections, paragraphs, char offsets); the convention
@@ -628,8 +632,10 @@ with no `decidedBy`, since nothing has classified them yet.
 italicisation-only, cross-reference renumbering. Material: changed currency amount, capacity threshold,
 day count, `shall`→`may`, defined-term change. Emits the funnel report and a static HTML report.
 
-The HTML report binds to the Phase 2 `ChangeCard` schema, so every phase from here is visually
-demonstrable without waiting for the web app.
+The HTML report makes every phase from here visually demonstrable without waiting for the web app.
+Phase 9 rebuilt it on the briefing, so the CLI and the workspace now render the same thing — they
+disagreed for a while, with the report still grouping by materiality rule after the app had moved on,
+which is the sort of drift a second surface invites. `tests/report.test.ts` asserts they agree.
 
 **Test:** `npx vitest run tests/materiality-rules.test.ts`
 
@@ -1091,9 +1097,10 @@ because they share the same wrong premise about where the convention holds. This
 
 ### Phase 9 — The briefing
 
-**Builds:** provision-level grouping, impact categorisation, model-written change statements.
+**Builds:** provision-level grouping, impact categorisation, amended-text passages, model-written
+change statements, the compliance filing deadline, and the static report rebuilt on all of it.
 
-**Test:** `npx vitest run tests/briefing.test.ts`
+**Test:** `npx vitest run tests/briefing.test.ts tests/compliance.test.ts tests/report.test.ts`
 
 | Gate | Type |
 |---|---|
@@ -1193,8 +1200,8 @@ The widely-cited "10 second timeout" is stale. With Fluid Compute, on by default
 
 Hobby is restricted to personal, non-commercial use.
 
-**Design rule from the 4.5 MB cap:** API routes return change cards paginated and reference source spans
-by offset. Full document text is never embedded in a response; the client requests spans on demand.
+**Design rule from the 4.5 MB cap:** API routes return briefing entries with bounded passages and
+reference source spans by offset. Full document text is never embedded in a response; the client requests spans on demand.
 
 ### Routes
 

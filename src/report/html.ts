@@ -1,16 +1,31 @@
 /**
  * Static HTML review report.
  *
- * Emitted from Phase 5 onward so every phase is visually demonstrable without waiting
- * for the web app. It renders the triage funnel and the change groups behind it,
- * deliberately including the filtered remainder: a filter the reader cannot inspect is a
- * filter they cannot trust (PRD §6, principle 3).
+ * The CLI's answer to the web app: the same briefing, rendered to a file, so the pipeline
+ * is demonstrable without a server, a database, or a model provider. It carries no
+ * model-written statements for that reason — the passages and the redline are
+ * deterministic, and the report is honest about being the offline view.
+ *
+ * It renders what the reader triages on, in the order they triage it, and it keeps the
+ * filtered remainder one click away: a filter the reader cannot inspect is a filter they
+ * cannot trust (PRD §6, principle 3).
  *
  * Self-contained — no external CSS, fonts, or scripts.
  */
 
+import {
+  buildBriefing,
+  CATEGORY_GLOSS,
+  CATEGORY_LABEL,
+  type ImpactCategory,
+  type Passage,
+  type ProvisionChange,
+} from "../pipeline/briefing.js";
+import { AS_READS_LABEL, PRIORITY_LABEL } from "../pipeline/labels.js";
+import { substantiveOutline } from "../pipeline/outline.js";
 import type { ClassifiedGroup, MaterialityResult } from "../pipeline/materiality.js";
-import type { Determination, ParsedDocument } from "../pipeline/types.js";
+import type { ComplianceDeadline } from "../pipeline/compliance.js";
+import type { Determination, Edit, ParsedDocument } from "../pipeline/types.js";
 
 const esc = (s: string): string =>
   s.replace(/[&<>"']/g, (c) =>
@@ -23,33 +38,171 @@ const clip = (s: string, n: number): string => {
 };
 
 /**
- * Render a group's source window with its markup made visible: deletions struck
- * through, additions highlighted. Context on either side is shown unstyled so the reader
- * can see the change in situ rather than as a bare fragment.
+ * Collapse identical substitutions, then pair each deletion with what replaced it.
+ *
+ * Both steps exist because the raw sequence is unreadable: a term renamed throughout a
+ * pro forma agreement produces one edit per occurrence, and a substitution prints as two
+ * adjacent pieces of markup with nothing saying which replaced which.
  */
-function renderRedline(doc: ParsedDocument, g: ClassifiedGroup): string {
-  const edits = [...g.group.edits].sort((a, b) => a.citation.span[0] - b.citation.span[0]);
-  const pad = 90;
-  const start = Math.max(0, g.group.span[0] - pad);
-  const end = Math.min(doc.text.length, g.group.span[1] + pad);
+function pairedRedline(edits: readonly Edit[], limit = 8): string {
+  const collapsed: Array<{ kind: string; text: string; repeats: number }> = [];
+  const seen = new Map<string, number>();
+  for (const e of edits) {
+    const key = `${e.kind}:${e.text.replace(/\s+/g, " ").trim().toLowerCase()}`;
+    const at = seen.get(key);
+    if (at !== undefined) {
+      collapsed[at]!.repeats++;
+      continue;
+    }
+    seen.set(key, collapsed.length);
+    collapsed.push({ kind: e.kind, text: clip(e.text, 240), repeats: 1 });
+  }
+
+  const shown = collapsed.slice(0, limit);
+  const times = (n: number) => (n > 1 ? ` <span class="x">×${n}</span>` : "");
 
   let html = "";
-  let cursor = start;
-  for (const e of edits) {
-    const [a, b] = e.citation.span;
-    if (a < cursor) continue;
-    html += esc(doc.text.slice(cursor, a).replace(/\s+/g, " "));
-    const tag = e.kind === "deletion" ? "del" : "ins";
-    html += `<${tag}>${esc(e.text.replace(/\s+/g, " "))}</${tag}>`;
-    cursor = b;
+  for (let i = 0; i < shown.length; i++) {
+    const cur = shown[i]!;
+    const next = shown[i + 1];
+    if (cur.kind === "deletion" && next?.kind === "addition") {
+      html += `<div class="row"><del>${esc(cur.text)}${times(cur.repeats)}</del>` +
+        `<span class="arrow">→</span><ins>${esc(next.text)}${times(next.repeats)}</ins></div>`;
+      i++;
+    } else if (cur.kind === "deletion") {
+      html += `<div class="row"><del>${esc(cur.text)}${times(cur.repeats)}</del></div>`;
+    } else {
+      html += `<div class="row"><ins>${esc(cur.text)}${times(cur.repeats)}</ins></div>`;
+    }
   }
-  html += esc(doc.text.slice(cursor, end).replace(/\s+/g, " "));
   return html;
 }
 
+function passageHtml(p: Passage): string {
+  return (
+    `<p class="passage">${p.clippedStart ? '<span class="ctx">… </span>' : ""}` +
+    `${esc(p.text.replace(/\s+/g, " ").trim())}` +
+    `${p.clippedEnd ? '<span class="ctx"> …</span>' : ""}</p>`
+  );
+}
+
+const PRIORITY_CLASS: Record<string, string> = {
+  material: "mat",
+  "needs-review": "und",
+  clarifying: "cla",
+};
+
+function changeHtml(c: ProvisionChange): string {
+  const dets = c.determinations.length;
+  return `
+  <li>
+    <h4 class="${PRIORITY_CLASS[c.priority] ?? ""}">${esc(clip(c.provision, 110))}</h4>
+    <div class="meta">
+      <span class="badge">${esc(PRIORITY_LABEL[c.priority] ?? c.priority)}</span>
+      ${dets > 0 ? `<span>${dets} determination${dets === 1 ? "" : "s"}</span>` : ""}
+      <span class="cite">${
+        c.revisionCount === 0
+          ? "no change to the regulatory text"
+          : `${c.revisionCount} revision${c.revisionCount === 1 ? "" : "s"}`
+      }</span>
+    </div>
+    ${
+      c.passages.length > 0
+        ? `<div class="reads"><div class="lbl">${esc(
+            AS_READS_LABEL[c.provisionStatus] ?? "As printed in this document",
+          )}</div>${c.passages.map(passageHtml).join("")}${
+            c.passageCount > c.passages.length
+              ? `<div class="note">${c.passageCount - c.passages.length} further changed passage${
+                  c.passageCount - c.passages.length === 1 ? "" : "s"
+                } in this provision.</div>`
+              : ""
+          }</div>`
+        : ""
+    }
+    ${
+      c.edits.length > 0
+        ? `<div class="rl"><div class="lbl">What changed</div>${pairedRedline(c.edits)}</div>`
+        : ""
+    }
+  </li>`;
+}
+
+function categorySection(
+  category: ImpactCategory,
+  changes: ProvisionChange[],
+  open: boolean,
+  limit: number,
+): string {
+  if (changes.length === 0) return "";
+  const shown = changes.slice(0, limit);
+  const rest = changes.length - shown.length;
+  return `
+  <details class="grp"${open ? " open" : ""}>
+    <summary>${esc(CATEGORY_LABEL[category])} <span class="count">${changes.length} provision${
+      changes.length === 1 ? "" : "s"
+    }</span></summary>
+    <p class="note">${esc(CATEGORY_GLOSS[category])}</p>
+    <ul>${shown.map(changeHtml).join("")}</ul>
+    ${rest > 0 ? `<p class="note">${rest} further provision${rest === 1 ? "" : "s"} in this group, not shown in the static report.</p>` : ""}
+  </details>`;
+}
+
+/**
+ * What the document proposes, for a document with nothing to brief.
+ *
+ * A proposed rule decides nothing and publishes no marked-up text, so the briefing is
+ * legitimately empty — but the agency's own section structure is the substance, and a page
+ * of zeroes would be a worse answer than the outline. Mirrors the workspace.
+ */
+function outlineSection(doc: ParsedDocument): string {
+  const outline = substantiveOutline(doc);
+  if (outline.length === 0) {
+    return `<div class="panel"><b>Nothing to brief.</b>
+  <p class="note" style="margin:.4rem 0 0">This document declares no redline convention and
+  contains no determination blocks.</p></div>`;
+  }
+  const items = outline
+    .map(
+      (o) =>
+        `<li${o.primary ? ' class="primary"' : ""}>${esc(o.title)}${
+          o.children.length > 0
+            ? `<ul>${o.children.map((c) => `<li>${esc(c.title)}</li>`).join("")}</ul>`
+            : ""
+        }</li>`,
+    )
+    .join("");
+  return `<details class="grp" open><summary>What this document proposes</summary>
+    <ul class="outline">${items}</ul></details>`;
+}
+
+/** The filtered remainder, kept inspectable (PRD §6, principle 3). */
+function editorialSection(doc: ParsedDocument, groups: ClassifiedGroup[]): string {
+  if (groups.length === 0) return "";
+  const items = groups
+    .slice(0, 60)
+    .map((g) => {
+      const section = doc.sections.find((s) => s.id === g.group.edits[0]?.sectionId);
+      const path = section ? clip(section.headingPath.slice(-2).join(" › "), 80) : "—";
+      return `<li>
+        <div class="meta"><span class="rule">${esc(g.result.ruleId)}</span> ${esc(path)}
+          <span class="cite">chars ${g.group.span[0]}–${g.group.span[1]}</span></div>
+        <div class="rl">${pairedRedline(g.group.edits, 4)}</div>
+        <div class="why">${esc(g.result.reason)}</div>
+      </li>`;
+    })
+    .join("");
+  const rest = groups.length - Math.min(60, groups.length);
+  return `
+  <details class="grp filtered">
+    <summary>Filtered out as editorial <span class="count">${groups.length} revisions</span></summary>
+    <p class="note">Equivalence tests showed the before and after readings are the same once a
+    legally irrelevant difference is normalised away. Shown so the filter can be inspected.</p>
+    <ul>${items}</ul>
+    ${rest > 0 ? `<p class="note">… and ${rest} more.</p>` : ""}
+  </details>`;
+}
+
 function funnelBar(m: MaterialityResult): string {
-  // Drawn in revisions, the unit a reader counts. An edit is one bracket or one italic
-  // run, so a substitution is two of them and the edit total runs to roughly double.
   const f = m.funnel.revisions;
   const total = f.material + f.clarifying + f.editorial + f.undecided;
   if (total === 0) return "";
@@ -67,64 +220,44 @@ function funnelBar(m: MaterialityResult): string {
     </div>`;
 }
 
-function groupSection(
-  doc: ParsedDocument,
-  title: string,
-  cls: string,
-  groups: ClassifiedGroup[],
-  open: boolean,
-  note: string,
-): string {
-  if (groups.length === 0) return "";
-  const items = groups
-    .map((g) => {
-      const section = doc.sections.find((s) => s.id === g.group.edits[0]?.sectionId);
-      const path = section ? clip(section.headingPath.slice(-2).join(" › "), 80) : "—";
-      return `
-      <li>
-        <div class="meta"><span class="rule">${esc(g.result.ruleId)}</span> ${esc(path)}
-          <span class="cite">§${esc(g.group.edits[0]?.sectionId ?? "")} · chars ${g.group.span[0]}–${g.group.span[1]}</span>
-        </div>
-        <div class="rl">${renderRedline(doc, g)}</div>
-        <div class="why">${esc(g.result.reason)}</div>
-      </li>`;
-    })
-    .join("");
-
-  return `
-  <details class="grp ${cls}"${open ? " open" : ""}>
-    <summary><span class="dot"></span>${esc(title)} <span class="count">${groups.length}</span></summary>
-    <p class="note">${esc(note)}</p>
-    <ul>${items}</ul>
-  </details>`;
-}
-
 export interface ReportInput {
   doc: ParsedDocument;
   materiality: MaterialityResult;
   determinations: Determination[];
   /** Share of citations that verified against source (FR13). */
   verificationRate: number;
+  complianceDeadlines?: ComplianceDeadline[];
 }
+
+/** How many provisions each category shows before the report stops listing them. */
+const PER_CATEGORY = 12;
 
 export function renderReport(input: ReportInput): string {
   const { doc, materiality: m, determinations, verificationRate } = input;
   const f = m.funnel;
-  const by = (k: string) => m.groups.filter((g) => g.result.materiality === k);
+  const briefing = buildBriefing(doc, determinations, m);
+
+  const byCategory = new Map<ImpactCategory, ProvisionChange[]>();
+  for (const c of briefing.changes) {
+    const list = byCategory.get(c.category);
+    if (list) list.push(c);
+    else byCategory.set(c.category, [c]);
+  }
 
   const caps = doc.capabilityNotes
+    .map((n) => `<li class="${n.available ? "on" : "off"}"><b>${n.tier}</b> ${esc(n.reason)}</li>`)
+    .join("");
+
+  const deadlines = (input.complianceDeadlines ?? [])
     .map(
-      (n) =>
-        `<li class="${n.available ? "on" : "off"}"><b>${n.tier}</b> ${esc(n.reason)}</li>`,
+      (c) =>
+        `<div class="deadline"><b>Compliance filing due ${esc(c.dueOn ?? `${c.count} ${c.unit}`)}</b>
+         <div class="note">${esc(clip(c.sentence, 260))}</div></div>`,
     )
     .join("");
 
-  const dets = determinations
-    .slice(0, 40)
-    .map(
-      (d) => `<li><span class="cite">§${esc(d.id)}</span> ${esc(clip(d.headingPath.slice(-2).join(" › "), 90))}
-        <span class="refs">${d.crossRefs.length ? esc(d.crossRefs.slice(0, 6).join(", ")) : "no provision refs"}</span></li>`,
-    )
+  const sections = [...byCategory.entries()]
+    .map(([cat, changes], i) => categorySection(cat, changes, i === 0, PER_CATEGORY))
     .join("");
 
   return `<!doctype html>
@@ -143,12 +276,15 @@ export function renderReport(input: ReportInput): string {
          font:15px/1.6 ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif; }
   main { max-width:56rem; margin:0 auto }
   h1 { font-size:1.35rem; margin:0 0 .25rem }
-  .sub { color:var(--mut); font-size:.85rem; margin-bottom:1.5rem }
+  .sub { color:var(--mut); font-size:.85rem; margin-bottom:1.25rem }
   .panel { background:var(--card); border:1px solid var(--line); border-radius:10px;
            padding:1rem 1.15rem; margin-bottom:1.25rem }
   .stats { display:flex; gap:1.75rem; flex-wrap:wrap; margin:.5rem 0 .9rem }
   .stat b { display:block; font-size:1.5rem; line-height:1.2 }
   .stat span { color:var(--mut); font-size:.75rem; text-transform:uppercase; letter-spacing:.04em }
+  .deadline { border-left:3px solid var(--mat); padding:.35rem .75rem; margin:0 0 .8rem;
+              background:var(--bg); border-radius:0 6px 6px 0 }
+  .deadline b { color:var(--mat) }
   .bar { display:flex; height:12px; border-radius:6px; overflow:hidden; background:var(--line) }
   .seg.mat{background:var(--mat)} .seg.cla{background:var(--cla)}
   .seg.edi{background:var(--edi)} .seg.und{background:var(--und)}
@@ -161,26 +297,40 @@ export function renderReport(input: ReportInput): string {
   summary { cursor:pointer; padding:.7rem 1rem; font-weight:600; display:flex;
             align-items:center; gap:.5rem; list-style:none }
   summary::-webkit-details-marker { display:none }
-  .dot { width:9px; height:9px; border-radius:50% }
-  .material .dot{background:var(--mat)} .clarifying .dot{background:var(--cla)}
-  .editorial .dot{background:var(--edi)} .undecided .dot{background:var(--und)}
   .count { margin-left:auto; color:var(--mut); font-weight:400; font-size:.85rem }
-  .note { margin:0 1rem .5rem; color:var(--mut); font-size:.8rem }
+  .note { margin:0 1rem .6rem; color:var(--mut); font-size:.8rem }
   details.grp ul { margin:0; padding:0 1rem 1rem }
-  details.grp li { border-top:1px solid var(--line); padding:.8rem 0 }
-  .meta { font-size:.75rem; color:var(--mut); margin-bottom:.4rem;
+  details.grp li { border-top:1px solid var(--line); padding:.9rem 0 }
+  h4 { margin:0 0 .3rem; font-size:.92rem }
+  h4.mat { color:var(--mat) } h4.und { color:var(--und) } h4.cla { color:var(--cla) }
+  .meta { font-size:.75rem; color:var(--mut); margin-bottom:.5rem;
           display:flex; gap:.5rem; flex-wrap:wrap; align-items:baseline }
+  .badge { border:1px solid var(--line); border-radius:4px; padding:.05rem .35rem;
+           background:var(--bg) }
   .rule { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--bg);
           border:1px solid var(--line); border-radius:4px; padding:.05rem .35rem }
-  .cite { margin-left:auto; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; opacity:.75 }
-  .rl { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.8rem;
-        line-height:1.7; background:var(--bg); border:1px solid var(--line);
+  .cite { margin-left:auto; opacity:.8 }
+  .lbl { font-size:.68rem; text-transform:uppercase; letter-spacing:.06em;
+         color:var(--mut); margin-bottom:.35rem }
+  .reads { border-left:3px solid var(--line); padding:.1rem 0 .1rem .7rem; margin:0 0 .7rem }
+  .passage { margin:0 0 .5rem; font-size:.88rem; line-height:1.55 }
+  .passage:last-child { margin-bottom:0 }
+  .ctx { color:var(--mut) }
+  .rl { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.78rem;
+        line-height:1.6; background:var(--bg); border:1px solid var(--line);
         border-radius:6px; padding:.6rem .7rem; overflow-x:auto }
+  .row { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; margin-bottom:.25rem }
+  .row:last-child { margin-bottom:0 }
+  .arrow { color:var(--mut) }
+  .x { opacity:.7 }
   del { background:rgba(220,38,38,.16); text-decoration:line-through; padding:0 .1rem }
   ins { background:rgba(22,163,74,.18); text-decoration:none; padding:0 .1rem }
   .why { font-size:.78rem; color:var(--mut); margin-top:.4rem }
-  .refs { color:var(--mut); font-size:.72rem; margin-left:.4rem }
-  .dets li { font-size:.8rem; padding:.2rem 0; border-top:1px solid var(--line) }
+  .outline { padding:0 1rem 1rem; font-size:.88rem }
+  .outline > li { border-top:1px solid var(--line); padding:.5rem 0 }
+  .outline li.primary { font-weight:600 }
+  .outline ul { margin:.25rem 0 0; padding-left:1rem; font-size:.82rem; color:var(--mut) }
+  .outline ul li { border:0; padding:.1rem 0; font-weight:400 }
 </style></head><body><main>
 
 <h1>${esc(clip(doc.meta.title, 110))}</h1>
@@ -189,44 +339,32 @@ export function renderReport(input: ReportInput): string {
   ${doc.meta.pageLength ?? "?"} pages</div>
 
 <div class="panel">
+  ${deadlines}
   <div class="stats">
-    <div class="stat"><b>${doc.text.length.toLocaleString()}</b><span>characters</span></div>
-    <div class="stat"><b>${doc.paragraphs.filter((p) => !p.isSeparateOpinion).length}</b><span>paragraphs</span></div>
+    <div class="stat"><b>${briefing.changes.length}</b><span>provisions changed</span></div>
     <div class="stat"><b>${determinations.length}</b><span>determinations</span></div>
-    <div class="stat"><b>${f.totalGroups}</b><span>revisions</span></div>
+    <div class="stat"><b>${f.revisions.material + f.revisions.undecided}</b><span>revisions to review</span></div>
     <div class="stat"><b>${(verificationRate * 100).toFixed(1)}%</b><span>citations verified</span></div>
   </div>
-  <ul class="caps">${caps}</ul>
-</div>
-
-${
-  f.totalEdits > 0
-    ? `<div class="panel">
-  <div class="stats">
-    <div class="stat"><b style="color:var(--mat)">${f.revisions.material}</b><span>material</span></div>
-    <div class="stat"><b style="color:var(--edi)">${f.revisions.editorial}</b><span>editorial</span></div>
-    <div class="stat"><b style="color:var(--und)">${f.revisions.undecided}</b><span>undecided</span></div>
-    <div class="stat"><b>${(f.ruleCoverage * 100).toFixed(1)}%</b><span>decided by rule</span></div>
-  </div>
   ${funnelBar(m)}
+  <ul class="caps">${caps}</ul>
+  ${
+    briefing.editorialOnlyProvisions > 0
+      ? `<p class="note" style="margin:.6rem 0 0">${briefing.editorialOnlyProvisions} further
+         provisions changed in editorial ways only and are not listed.</p>`
+      : ""
+  }
+  <p class="note" style="margin:.4rem 0 0">Static report — deterministic output only. The
+  workspace adds a one-sentence summary per change, which requires a model provider.</p>
 </div>
 
-${groupSection(doc, "Material", "material", by("material"), true, "Rules fired on a change that cannot be anything but substantive: a negation, a modal verb, or a number that is not a cross-reference.")}
-${groupSection(doc, "Needs expert review", "undecided", by("undecided"), false, "No deterministic rule applies. These require judgement and are the model tier's input — they are not defaulted to any classification.")}
-${groupSection(doc, "Editorial", "editorial", by("editorial"), false, "Equivalence tests showed the before and after readings are the same once a legally irrelevant difference is normalised away. Shown so the filter can be inspected.")}`
-    : `<div class="panel"><b>No redline available.</b>
-  <p class="note" style="margin:.4rem 0 0">This document does not declare a redline convention, so
-  italics and brackets are not interpreted as additions or deletions. Determination analysis below is
-  unaffected.</p></div>`
+${
+  briefing.changes.length > 0
+    ? sections
+    : outlineSection(doc)
 }
 
-${
-  determinations.length > 0
-    ? `<details class="grp" open><summary>Determinations <span class="count">${determinations.length}</span></summary>
-  <p class="note">Decision blocks located structurally. Dispositions are classified in Phase 6; these are unclassified.</p>
-  <ul class="dets">${dets}</ul></details>`
-    : ""
-}
+${editorialSection(doc, m.groups.filter((g) => g.result.materiality === "editorial"))}
 
 </main></body></html>`;
 }

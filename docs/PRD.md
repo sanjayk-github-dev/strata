@@ -20,7 +20,7 @@ does, and cites the exact source passage behind every claim. The expert's job sh
 the answer to *verifying* it.
 
 v1 serves federal energy rulemakings before the Federal Energy Regulatory Commission (FERC) and
-delivers a citation-verified change packet for a single proceeding version.
+delivers a citation-verified change briefing for a single proceeding version.
 
 ---
 

@@ -14,11 +14,14 @@ that constrain implementation choices.
 
 ## Current state
 
-**Phases 1–8 complete locally** (not yet deployed) (see `docs/TDD.md` §8): ingestion, convention registry, capability detection,
-document model, citation verifier, determination blocks (T2), redline extraction (T3), rule-tier
-materiality, model-tier classification (provider-agnostic), and the join into change cards.
-and the Next.js review workspace. 276 tests passing, including 13 end-to-end against a real server.
-Vercel deployment not done yet — the app runs locally with no database.
+**Phases 1–9 complete locally, not deployed** (see `docs/TDD.md` §8): ingestion, convention registry,
+capability detection, document model, citation verifier, determination blocks (T2), redline
+extraction (T3), rule-tier materiality, model-tier classification (provider-agnostic), the
+provision-level briefing, the compliance filing deadline, and the Next.js review workspace.
+**378 tests passing**, including end-to-end tests against a real server.
+
+Vercel deployment is the remaining work — the app runs locally with no database, and
+`FileFeedbackStore` needs a Postgres implementation behind the same interface.
 
 ## Commands
 
@@ -28,7 +31,7 @@ npm run dev                         # web app at localhost:3000
 npm run analyze -- RM22-14          # pipeline only: version timeline + per-document analysis
 npm run analyze -- 2024-06563       # a single document; FR URLs also accepted
 npm run analyze -- 2024-06563 out/report   # …and write a static HTML review report
-npm test                            # all tests (205)
+npm test                            # all tests (378)
 npx vitest run tests/ingest.test.ts # a single test file
 npx vitest run -t "monotonic"       # a single test by name
 npm run typecheck
@@ -148,6 +151,29 @@ Note that a change is a **disposition**, not a text diff: text is reworded with 
 (*affirmed*), and barely touched with large effect (*modified*). Expert readings of the same provision
 legitimately differ, so surface disagreement rather than resolving it silently.
 
+## The output shape
+
+The unit shown to the reader is **an affected provision**, not an edit and not a determination.
+Organising by determination produced cards that were incoherent in both directions — one
+determination swallowing 85 edits while 226 others carried a single trivial edit — and could show
+"Clarified — no text change" above "85 text changes", because the disposition described the
+determination and the edits described provisions.
+
+Each entry leads with the provision **as amended** — reconstructed deterministically by dropping the
+bracketed deletions and keeping the italicised additions — and puts the redline beneath it. Entries
+group into six impact categories ordered by cost of missing one (deadlines, fees, thresholds,
+obligations, defined terms, other), and the card opens on the passage carrying the signal that
+earned its category.
+
+Two units exist and both are needed. An **edit** is one bracket or one italic run; a **revision** is
+a substitution or an insertion, which is what a reader counts. A substitution is two edits, so edit
+counts run to roughly double. The funnel carries both: edit counts are the I1 conservation check
+over what was parsed, revision counts are what every surface displays.
+
+Where a document publishes no marked-up text, the briefing is built from its determinations instead
+— 5 of the 7 verification documents are in that position, and a redline-only tool shows them as an
+empty page.
+
 ## Key files
 
 | Path | Purpose |
@@ -158,16 +184,20 @@ legitimately differ, so surface disagreement rather than resolving it silently.
 | `src/pipeline/document.ts` | Section/paragraph construction, capability detection |
 | `src/pipeline/xml.ts` | FR XML → plain text with element spans |
 | `src/pipeline/citation.ts` | **The trust keystone** — verification, quote location, display gate |
-| `src/pipeline/card.ts` | ChangeCard assembly: provision status and confidence derivation |
+| `src/pipeline/card.ts` | Provision status and confidence derivation |
 | `src/pipeline/determinations.ts` | T2 branch — decision blocks and provision cross-references |
 | `src/pipeline/redline.ts` | T3 branch — region bounds, edit extraction, adjacency grouping |
 | `src/pipeline/materiality.ts` | Rule tier — before/after reconstruction, editorial vs material |
 | `src/pipeline/classify.ts` | Model tier — dispositions and residual materiality, all output validated |
-| `src/pipeline/join.ts` | Joins both branches into prioritised change cards |
+| `src/pipeline/briefing.ts` | **The output shape** — provision-level entries, impact categories, amended-text passages |
+| `src/pipeline/compliance.ts` | The compliance filing deadline, resolved to a date |
+| `src/pipeline/outline.ts` | What a proposed rule proposes, with statutory boilerplate filtered out |
+| `src/pipeline/labels.ts` | Every user-facing string. No internal vocabulary reaches the UI |
+| `src/pipeline/join.ts` | Determination↔edit joining; still used by `assembleCards`, which the briefing superseded |
 | `src/llm/` | Provider-agnostic client (any OpenAI-compatible endpoint) + cassettes |
-| `src/report/html.ts` | Static review report; renders the funnel and the filtered remainder |
+| `src/report/html.ts` | Static report — the same briefing as the app, minus model statements |
 | `app/api/*/route.ts` | Thin callers over the pipeline: enumerate, analyse (streamed), source, feedback |
-| `app/components/Workspace.tsx` | The review UI — timeline, funnel, cards, in-place source, feedback |
+| `app/components/Workspace.tsx` | The review UI — timeline, briefing tabs, in-place source, feedback |
 | `src/store/feedback.ts` | Append-only feedback; file-backed locally, behind an interface |
 | `data/manifest.yaml` | Verification set: 7 documents with measured tiers, counts, redline fixtures |
 | `scripts/verify_manifest.py` | Data-drift guard against the live API (pending TS port) |

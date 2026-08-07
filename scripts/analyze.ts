@@ -16,8 +16,11 @@ import {
   classifyEdits,
   bodyParagraphs,
   citeParagraph,
-  assembleCards,
+  buildBriefing,
+  CATEGORY_LABEL,
   crossRefStats,
+  describeDeadline,
+  extractComplianceDeadlines,
   extractDeterminations,
   extractRedline,
   gateClaims,
@@ -108,23 +111,27 @@ function summarize(doc: ParsedDocument): void {
         `${d.bracketsInFootnotes} footnote brackets · unmatched brackets: ${d.unmatchedBrackets}`,
     );
 
-    // Phase 5 — rule-tier materiality. The funnel.
-    const f = classifyEdits(doc, rl.edits).funnel;
+    // Phase 5 — rule-tier materiality. The funnel, in the unit the reader is shown.
+    const materiality = classifyEdits(doc, rl.edits);
+    const f = materiality.funnel;
+    const r = f.revisions;
     console.log(
-      `  materiality: ${f.material} material · ${f.editorial} editorial · ` +
-        `${f.undecided} undecided → ${(f.ruleCoverage * 100).toFixed(1)}% decided by rule`,
+      `  materiality: ${r.material} material · ${r.editorial} editorial · ` +
+        `${r.undecided} undecided (of ${f.totalGroups} revisions) → ` +
+        `${(f.ruleCoverage * 100).toFixed(1)}% decided by rule`,
     );
-    const asm = assembleCards(doc, dets, classifyEdits(doc, rl.edits), rl.region.span);
-    const cv = asm.coverage;
-    console.log(
-      `  cards: ${cv.totalCards} (${cv.byPriority.material} material · ` +
-        `${cv.byPriority["needs-review"]} need review · ${cv.byPriority.clarifying} clarifying)`,
-    );
-    console.log(
-      `      joins: ${cv.joinedExplicit} explicit · ${cv.joinedImplicit} implicit · ` +
-        `${cv.unjoinedDeterminations} determinations with no textual footprint · ` +
-        `${cv.editOnlyCards} edits nothing discusses`,
-    );
+
+    const briefing = buildBriefing(doc, dets, materiality);
+    console.log(`  briefing: ${briefing.changes.length} provisions changed`);
+    const counts = Object.entries(briefing.byCategory).filter(([, n]) => n > 0);
+    for (const [cat, n] of counts) {
+      console.log(
+        `      ${CATEGORY_LABEL[cat as keyof typeof CATEGORY_LABEL].padEnd(30)} ${String(n).padStart(4)}`,
+      );
+    }
+    if (briefing.editorialOnlyProvisions > 0) {
+      console.log(`      (${briefing.editorialOnlyProvisions} more changed editorially only)`);
+    }
 
     const top = Object.entries(f.byRule)
       .filter(([k]) => k !== "none")
@@ -135,6 +142,18 @@ function summarize(doc: ParsedDocument): void {
     console.log(`      rules fired: ${top}`);
   } else if (rl.unavailableReason) {
     console.log(`  redline: unavailable — ${rl.unavailableReason.split(".")[0]}.`);
+    // The briefing still has determinations to work with, which is most documents.
+    const briefing = buildBriefing(doc, dets, classifyEdits(doc, []));
+    if (briefing.changes.length > 0) {
+      console.log(`  briefing: ${briefing.changes.length} provisions, from determinations alone`);
+    }
+  }
+
+  // The one date in a final rule that binds the reader's own organisation.
+  for (const c of extractComplianceDeadlines(doc, dets)) {
+    console.log(
+      `  compliance filing: ${describeDeadline(c)}` + (c.dueOn ? ` → due ${c.dueOn}` : ""),
+    );
   }
 }
 
@@ -188,14 +207,16 @@ async function main(): Promise<void> {
         if (c) claims.push({ text: `¶${c.paragraphNumber}`, citation: c });
       }
       const out = reportPath.replace(/\.html?$/, "") + `-${v.frDocNumber}.html`;
+      const determinations = extractDeterminations(parsed);
       mkdirSync(dirname(out), { recursive: true });
       writeFileSync(
         out,
         renderReport({
           doc: parsed,
           materiality: classifyEdits(parsed, rl.edits),
-          determinations: extractDeterminations(parsed),
+          determinations,
           verificationRate: gateClaims(parsed, claims).verificationRate,
+          complianceDeadlines: extractComplianceDeadlines(parsed, determinations),
         }),
         "utf8",
       );
