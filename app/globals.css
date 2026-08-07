@@ -100,11 +100,15 @@ button.link:disabled { text-decoration:none; opacity:.6 }
 .rlrow { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; margin-bottom:.25rem }
 .rlrow:last-child { margin-bottom:0 }
 .rlrow .arrow { color:var(--mut); flex:none }
-.index { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.2rem 0 .4rem }
-.chip { font-size:.75rem; padding:.3rem .6rem; border:1px solid var(--line); border-radius:999px;
-  background:var(--card); color:var(--mut); cursor:pointer; display:flex; gap:.4rem; align-items:center }
-.chip b { color:var(--fg); font-weight:600 }
-.chip.on { border-color:var(--fg); color:var(--fg) }
-.disclose { background:none; border:0; padding:0; font:inherit; color:inherit; cursor:pointer;
-  display:flex; gap:.4rem; align-items:center; text-transform:inherit; letter-spacing:inherit }
-.caret { font-size:.7rem; color:var(--mut) }
+.tabs { display:flex; flex-wrap:wrap; gap:.15rem; margin:1.4rem 0 0;
+  border-bottom:1px solid var(--line) }
+.tab { font-size:.78rem; padding:.45rem .75rem; border:1px solid transparent; border-bottom:0;
+  border-radius:6px 6px 0 0; background:none; color:var(--mut); cursor:pointer;
+  display:flex; gap:.4rem; align-items:center; margin-bottom:-1px }
+.tab:hover { color:var(--fg) }
+.tab b { font-weight:600; font-size:.72rem; color:var(--mut);
+  background:var(--bg); border-radius:999px; padding:.05rem .35rem }
+.tab.on { color:var(--fg); background:var(--card); border-color:var(--line);
+  border-bottom:1px solid var(--card) }
+.tab.on b { color:var(--fg) }
+section[role="tabpanel"] { padding-top:.9rem }

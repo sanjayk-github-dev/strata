@@ -333,25 +333,19 @@ function Result({ analysis, docNumber }: { analysis: Analysis; docNumber: string
   }
 
   /**
-   * One category open at a time, the highest-priority one by default.
+   * One category at a time, as tabs.
    *
    * Sixty-four provisions under the first heading pushed every other category off the
-   * screen, so a reader could not tell what else the document did without scrolling past
-   * all of them. Collapsed sections plus the index above make the shape of the document
-   * visible before any of its detail.
+   * screen. Collapsing the groups fixed that but left switching between them a scroll —
+   * and switching is the actual motion of the work: clear the deadlines, then the fees.
+   * Tabs keep every group and its count permanently in view and make the move one click.
    */
-  const [open, setOpen] = useState<Record<string, boolean>>(() =>
-    groups[0] ? { [groups[0][0]]: true } : {},
-  );
+  const [tab, setTab] = useState<string>(groups[0]?.[0] ?? "");
   const [shownIn, setShownIn] = useState<Record<string, number>>({});
 
-  const reveal = useCallback((category: string) => {
-    setOpen((o) => ({ ...o, [category]: true }));
-    // Let the section render before scrolling to it.
-    requestAnimationFrame(() => {
-      document.getElementById(`cat-${category}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, []);
+  // A different document has different groups, so fall back rather than render an empty
+  // panel for a category this analysis does not have.
+  const active = groups.find(([c]) => c === tab) ?? groups[0];
 
   return (
     <>
@@ -476,12 +470,14 @@ function Result({ analysis, docNumber }: { analysis: Analysis; docNumber: string
       )}
 
       {groups.length > 0 && (
-        <nav className="index">
+        <nav className="tabs" role="tablist">
           {groups.map(([category, items]) => (
             <button
               key={category}
-              className={open[category] ? "chip on" : "chip"}
-              onClick={() => reveal(category)}
+              role="tab"
+              aria-selected={active?.[0] === category}
+              className={active?.[0] === category ? "tab on" : "tab"}
+              onClick={() => setTab(category)}
             >
               {analysis.categories[category] ?? category}
               <b>{items.length}</b>
@@ -490,45 +486,27 @@ function Result({ analysis, docNumber }: { analysis: Analysis; docNumber: string
         </nav>
       )}
 
-      {groups.map(([category, items]) => {
-        const isOpen = open[category] ?? false;
-        const shown = shownIn[category] ?? PER_CATEGORY;
-        return (
-          <section key={category} id={`cat-${category}`}>
-            <h3 className="cat">
-              <button
-                className="disclose"
-                onClick={() => setOpen((o) => ({ ...o, [category]: !isOpen }))}
-                aria-expanded={isOpen}
-              >
-                <span className="caret">{isOpen ? "▾" : "▸"}</span>
-                {analysis.categories[category] ?? category}
-              </button>
-              <span className="count">
-                {items.length} {items.length === 1 ? "provision" : "provisions"}
-              </span>
-            </h3>
-            {isOpen && (
-              <>
-                <p className="gloss">{analysis.categoryGloss[category]}</p>
-                {items.slice(0, shown).map((c) => (
-                  <ChangeView key={c.id} change={c} docNumber={docNumber} />
-                ))}
-                {shown < items.length && (
-                  <button
-                    className="ghost"
-                    onClick={() =>
-                      setShownIn((v) => ({ ...v, [category]: shown + PER_CATEGORY }))
-                    }
-                  >
-                    Show more ({items.length - shown} remaining in this group)
-                  </button>
-                )}
-              </>
-            )}
-          </section>
-        );
-      })}
+      {active &&
+        (() => {
+          const [category, items] = active;
+          const shown = shownIn[category] ?? PER_CATEGORY;
+          return (
+            <section role="tabpanel">
+              <p className="gloss">{analysis.categoryGloss[category]}</p>
+              {items.slice(0, shown).map((c) => (
+                <ChangeView key={c.id} change={c} docNumber={docNumber} />
+              ))}
+              {shown < items.length && (
+                <button
+                  className="ghost"
+                  onClick={() => setShownIn((v) => ({ ...v, [category]: shown + PER_CATEGORY }))}
+                >
+                  Show more ({items.length - shown} remaining in this group)
+                </button>
+              )}
+            </section>
+          );
+        })()}
     </>
   );
 }

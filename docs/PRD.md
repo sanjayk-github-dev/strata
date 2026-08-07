@@ -308,8 +308,9 @@ reader's own organisation, and the operative text never states it.
 
 Strata presents the briefing: the provisions this document changed, grouped by kind of
 consequence, deadlines first, with the changes carrying legal effect at the head of each group. The
-groups collapse, and an index across the top gives their counts, so the shape of the document is
-visible before any of its detail. A summary line gives the totals behind it. For a version without
+groups are tabs, each showing its count, so the shape of the document is visible before any of its
+detail and moving between groups is one click — which is the motion of the work itself: clear the
+deadlines, then the fees. A summary line gives the totals behind it. For a version without
 redline markup, the briefing is built from decision blocks rather than text edits, and says so.
 
 **W3 — Verify a claim.** User opens an entry. Strata shows the source passage from the regulatory text
