@@ -1,6 +1,7 @@
 # Local context, not part of the project
 build-challenge.txt
 docs/interview-prep.md
+docs/walkthrough.md
 
 # Python
 .venv/
