@@ -112,3 +112,8 @@ button.link:disabled { text-decoration:none; opacity:.6 }
   border-bottom:1px solid var(--card) }
 .tab.on b { color:var(--fg) }
 section[role="tabpanel"] { padding-top:.9rem }
+.dochead { display:flex; align-items:flex-start; gap:1rem; margin-bottom:.7rem }
+.dochead > div:first-child { flex:1; min-width:0 }
+.dochead button { flex:none }
+.line { font-size:.82rem; color:var(--mut); margin-top:.7rem }
+.line b { color:var(--fg); font-weight:600 }

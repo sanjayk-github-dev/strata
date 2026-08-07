@@ -342,6 +342,7 @@ function Result({ analysis, docNumber }: { analysis: Analysis; docNumber: string
    */
   const [tab, setTab] = useState<string>(groups[0]?.[0] ?? "");
   const [shownIn, setShownIn] = useState<Record<string, number>>({});
+  const [details, setDetails] = useState(false);
 
   // A different document has different groups, so fall back rather than render an empty
   // panel for a category this analysis does not have.
@@ -349,16 +350,31 @@ function Result({ analysis, docNumber }: { analysis: Analysis; docNumber: string
 
   return (
     <>
+      {/*
+        The header earns its space by what a reader loses if they miss it, which is very
+        little of what it used to hold. Dates are unrecoverable; the agency's abstract and
+        the capability report are reference, and they were pushing the actual changes below
+        the fold on every document.
+      */}
       <div className="panel">
-        <h2 style={{ fontSize: "1rem", margin: "0 0 .2rem" }}>{analysis.meta.title}</h2>
-        <div className="sub" style={{ margin: "0 0 .8rem" }}>
-          {analysis.meta.frDocNumber} · {analysis.meta.action}{" "}
-          <a href={analysis.meta.officialUrl} target="_blank" rel="noreferrer">
-            View official document ↗
-          </a>
+        <div className="dochead">
+          <div>
+            <h2 style={{ fontSize: "1rem", margin: "0 0 .2rem" }}>{analysis.meta.title}</h2>
+            <div className="sub">
+              {analysis.meta.frDocNumber} · {analysis.meta.action}{" "}
+              <a href={analysis.meta.officialUrl} target="_blank" rel="noreferrer">
+                View official document ↗
+              </a>
+            </div>
+          </div>
+          <button className="ghost" onClick={() => setDetails((v) => !v)} aria-expanded={details}>
+            {details ? "Hide details" : "Details"}
+          </button>
         </div>
 
-        {analysis.complianceDeadlines.length > 0 && (
+        {(analysis.complianceDeadlines.length > 0 ||
+          analysis.meta.commentsCloseOn ||
+          analysis.meta.effectiveOn) && (
           <div className="dates">
             {analysis.complianceDeadlines.map((c, i) => (
               <div key={i} className="deadline">
@@ -367,86 +383,87 @@ function Result({ analysis, docNumber }: { analysis: Analysis; docNumber: string
                     ? `Compliance filing due ${c.dueOn}`
                     : `Compliance filing due ${c.description}`}
                 </b>
-                <div className="sub">
-                  {c.dueOn ? `${c.description}. ` : ""}
-                  {c.sentence}
-                </div>
+                {details && (
+                  <div className="sub">
+                    {c.dueOn ? `${c.description}. ` : ""}
+                    {c.sentence}
+                  </div>
+                )}
               </div>
             ))}
-          </div>
-        )}
-
-        {(analysis.meta.commentsCloseOn || analysis.meta.effectiveOn) && (
-          <div className="dates">
             {analysis.meta.commentsCloseOn && (
               <div className="deadline">
                 <b>Comments due {analysis.meta.commentsCloseOn}</b>
-                {analysis.meta.datesNote && <div className="sub">{analysis.meta.datesNote}</div>}
+                {details && analysis.meta.datesNote && (
+                  <div className="sub">{analysis.meta.datesNote}</div>
+                )}
               </div>
             )}
             {analysis.meta.effectiveOn && <div>Effective {analysis.meta.effectiveOn}</div>}
-            {analysis.meta.cfrReferences.length > 0 && (
+            {details && analysis.meta.cfrReferences.length > 0 && (
               <div className="sub">Affects {analysis.meta.cfrReferences.join(", ")}</div>
             )}
           </div>
         )}
 
-        {analysis.meta.abstract && (
-          <div className="abstract">
-            <div className="sub" style={{ margin: "0 0 .25rem" }}>Agency summary, as published</div>
-            {analysis.meta.abstract}
-          </div>
-        )}
-
-        <div className="stats">
-          <div className="stat">
-            <b>{analysis.provisionsChanged}</b>
-            <span>provisions changed</span>
-          </div>
-          <div className="stat">
-            <b>{analysis.determinationCount}</b>
-            <span>determinations</span>
-          </div>
-          <div className="stat">
-            <b>{(funnel.revisions.material + funnel.revisions.undecided).toLocaleString()}</b>
-            <span>revisions to review</span>
-          </div>
-          <div className="stat">
-            <b>
-              {analysis.claimsChecked > 0 ? `${(verificationRate * 100).toFixed(0)}%` : "—"}
-            </b>
-            <span>
-              {analysis.claimsChecked > 0
-                ? `${analysis.claimsChecked.toLocaleString()} citations checked`
-                : "no citations to check"}
-            </span>
-          </div>
-        </div>
-
-        <div className="sub" style={{ margin: ".8rem 0 0" }}>
-          {(() => {
-            const optional = capabilities.filter((c) => c.tier !== "T1");
-            const on = optional.filter((c) => c.available);
-            const off = optional.filter((c) => !c.available);
-            return (
-              <>
-                {on.length > 0 && <div>Analysis available: {on.map((c) => c.label).join(" · ")}</div>}
-                {off.map((c) => (
-                  <div key={c.tier}>
-                    <b>No {c.label.toLowerCase()}</b> — {c.reason}
-                  </div>
-                ))}
-              </>
-            );
-          })()}
-          {analysis.editorialOnlyProvisions > 0 && (
-            <div>
-              {analysis.editorialOnlyProvisions} further provisions changed in editorial ways only
-              and are not listed.
-            </div>
+        <div className="line">
+          <b>{analysis.provisionsChanged}</b> provisions changed ·{" "}
+          <b>{(funnel.revisions.material + funnel.revisions.undecided).toLocaleString()}</b>{" "}
+          revisions to review
+          {analysis.determinationCount > 0 && (
+            <>
+              {" "}
+              · <b>{analysis.determinationCount}</b> determinations
+            </>
           )}
-          {!redline.available && redline.reason && <div>{redline.reason}</div>}
+          {analysis.claimsChecked > 0 && (
+            <>
+              {" "}
+              · <b>{(verificationRate * 100).toFixed(0)}%</b> of{" "}
+              {analysis.claimsChecked.toLocaleString()} citations verified
+            </>
+          )}
         </div>
+
+        {details && (
+          <>
+            {analysis.meta.abstract && (
+              <div className="abstract">
+                <div className="sub" style={{ margin: "0 0 .25rem" }}>
+                  Agency summary, as published
+                </div>
+                {analysis.meta.abstract}
+              </div>
+            )}
+
+            <div className="sub" style={{ margin: ".8rem 0 0" }}>
+              {(() => {
+                const optional = capabilities.filter((c) => c.tier !== "T1");
+                const on = optional.filter((c) => c.available);
+                const off = optional.filter((c) => !c.available);
+                return (
+                  <>
+                    {on.length > 0 && (
+                      <div>Analysis available: {on.map((c) => c.label).join(" · ")}</div>
+                    )}
+                    {off.map((c) => (
+                      <div key={c.tier}>
+                        <b>No {c.label.toLowerCase()}</b> — {c.reason}
+                      </div>
+                    ))}
+                  </>
+                );
+              })()}
+              {analysis.editorialOnlyProvisions > 0 && (
+                <div>
+                  {analysis.editorialOnlyProvisions} further provisions changed in editorial ways
+                  only and are not listed.
+                </div>
+              )}
+              {!redline.available && redline.reason && <div>{redline.reason}</div>}
+            </div>
+          </>
+        )}
       </div>
 
       {analysis.changes.length === 0 && analysis.outline.length > 0 && (
