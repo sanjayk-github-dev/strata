@@ -302,9 +302,14 @@ of labeled data, and it is collected at the moment of review, on the specific en
 **W1 — Open a proceeding.** User enters a proceeding identifier. Strata resolves every published
 version, ordered chronologically, each labeled proposed / final / amended with its publication date.
 
-**W2 — Review a version.** User selects a version. Strata presents the briefing: the provisions this
-document changed, grouped by kind of consequence, deadlines first, with the changes carrying legal
-effect at the head of each group. A summary line gives the totals behind it. For a version without
+**W2 — Review a version.** User selects a version. Where the document directs a compliance filing,
+that deadline is stated above everything else — it is the one date in a final rule that binds the
+reader's own organisation, and the operative text never states it.
+
+Strata presents the briefing: the provisions this document changed, grouped by kind of
+consequence, deadlines first, with the changes carrying legal effect at the head of each group. The
+groups collapse, and an index across the top gives their counts, so the shape of the document is
+visible before any of its detail. A summary line gives the totals behind it. For a version without
 redline markup, the briefing is built from decision blocks rather than text edits, and says so.
 
 **W3 — Verify a claim.** User opens an entry. Strata shows the source passage from the regulatory text
@@ -335,6 +340,7 @@ aside.
 | FR11 | Present the full triage funnel with filtered groups expandable in place |
 | FR12 | Capture per-provision expert feedback and persist it |
 | FR13 | Report citation verification rate for every processed version |
+| FR15 | Where a final rule directs one, extract the compliance filing deadline and resolve it to a date |
 | FR14 | Detect per document which analyses its structure supports; state what was and was not available, and never approximate an unavailable one |
 
 ---

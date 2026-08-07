@@ -23,6 +23,12 @@ export {
   type ProvisionChange,
 } from "./briefing.js";
 export {
+  extractComplianceDeadlines,
+  describeDeadline,
+  type ComplianceDeadline,
+  type DeadlineAnchor,
+} from "./compliance.js";
+export {
   isAdministrative,
   substantiveOutline,
   type OutlineEntry,

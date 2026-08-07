@@ -20,6 +20,8 @@ import {
   classifyResiduals,
   crossRefStats,
   extractDeterminations,
+  extractComplianceDeadlines,
+  describeDeadline,
   applyResiduals,
   officialUrl,
   STAGE_LABEL,
@@ -147,6 +149,29 @@ export async function GET(request: Request): Promise<Response> {
           detail: `${determinations.length} determinations · ${(crossRefStats(doc).coverage * 100).toFixed(0)}% cite a provision`,
           done: true,
         });
+
+        /**
+         * The one date in a final rule that binds the reader's own organisation.
+         *
+         * The operative text says what the tariff must say; it never says when the tariff
+         * has to be filed. That sits in a single preamble sentence under Compliance
+         * Procedures, and missing it is not recoverable.
+         */
+        const complianceDeadlines = extractComplianceDeadlines(doc, determinations).map((c) => ({
+          dueOn: c.dueOn,
+          description: describeDeadline(c),
+          sentence: c.sentence,
+          span: c.citation.span,
+        }));
+        if (complianceDeadlines.length > 0) {
+          emit({
+            stage: "compliance",
+            detail: complianceDeadlines
+              .map((c) => (c.dueOn ? `compliance filing due ${c.dueOn}` : c.description))
+              .join(" · "),
+            done: true,
+          });
+        }
 
         const rl = extractRedline(doc);
         emit({
@@ -296,6 +321,7 @@ export async function GET(request: Request): Promise<Response> {
             verificationRate,
             claimsChecked,
             outline,
+            complianceDeadlines,
             funnel: materiality.funnel,
             provisionsChanged: briefing.changes.length,
             determinationCount: determinations.length,

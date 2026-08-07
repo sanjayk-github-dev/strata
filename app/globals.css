@@ -100,3 +100,11 @@ button.link:disabled { text-decoration:none; opacity:.6 }
 .rlrow { display:flex; gap:.5rem; align-items:baseline; flex-wrap:wrap; margin-bottom:.25rem }
 .rlrow:last-child { margin-bottom:0 }
 .rlrow .arrow { color:var(--mut); flex:none }
+.index { display:flex; flex-wrap:wrap; gap:.4rem; margin:1.2rem 0 .4rem }
+.chip { font-size:.75rem; padding:.3rem .6rem; border:1px solid var(--line); border-radius:999px;
+  background:var(--card); color:var(--mut); cursor:pointer; display:flex; gap:.4rem; align-items:center }
+.chip b { color:var(--fg); font-weight:600 }
+.chip.on { border-color:var(--fg); color:var(--fg) }
+.disclose { background:none; border:0; padding:0; font:inherit; color:inherit; cursor:pointer;
+  display:flex; gap:.4rem; align-items:center; text-transform:inherit; letter-spacing:inherit }
+.caret { font-size:.7rem; color:var(--mut) }

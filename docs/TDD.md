@@ -993,6 +993,41 @@ since the product's claim is that ambiguity is surfaced rather than resolved.
 
 ---
 
+### The compliance filing deadline
+
+The operative text of a final rule says what the tariff must say. It never says *when the tariff has
+to be filed* — that lives in one preamble sentence under a Compliance Procedures heading, and it is
+the only date in the document that binds the reader's own organisation.
+
+Extraction is structural rather than lexical: the block deciding compliance timing is a determination
+under a Compliance heading, which Phase 3 already locates. This finds the directive sentence inside
+it and resolves the period against the document's own publication and effective dates.
+
+| Document | Found |
+|---|---|
+| Order No. 2023 | 90 calendar days from publication → **2023-12-05** |
+| Order No. 1920 | 10 months from the effective date → **2025-06-12**, plus 12 months for interregional → **2025-08-12** |
+| Order No. 2023-A | 210 calendar days from the publication of *Order No. 2023* — period reported, **no date** |
+| Both NOPRs, 1920-A, 1920-B | none, correctly |
+
+Three things the filter has to get right, all measured on real text in the same block:
+
+**A commenter's number is not the agency's.** "EEI suggests a 240-day deadline" and "Consumers
+Energy and NRECA support the proposed requirement … within 180 days" sit beside the determination.
+Requiring the agency's own directive voice excludes them; they never carry it.
+
+**Naming who asked is not reporting what they asked.** A first draft excluded any sentence containing
+"request", which dropped Order No. 1920's second deadline — "In response to MISO's request for a
+separate, longer compliance timeline, we also modify the NOPR proposal and require … within 12
+months" is a directive that happens to name its petitioner.
+
+**An anchor in another document resolves to no date.** Order 2023-A counts 210 days from the
+publication of *Order No. 2023*. Resolving that against 2023-A's own publication date would produce
+a confidently wrong date on the most consequential field on the page, so the period is reported and
+`dueOn` stays null.
+
+---
+
 ### The text before the diff
 
 A reader asked, of a card sitting under "Deadlines and timing", where the deadline was. The

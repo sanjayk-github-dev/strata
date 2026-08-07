@@ -158,6 +158,16 @@ describe("analysis stream (PRD W2)", () => {
     expect(bytes).toBeLessThan(1_000_000); // and in practice, far under
   }, 180_000);
 
+  it("surfaces the compliance filing deadline on a final rule", async () => {
+    // The date that binds the reader's own organisation, and the one thing the operative
+    // text never states.
+    const { last } = await analyze("2023-16628");
+    const cd = last.result.complianceDeadlines;
+    expect(cd).toHaveLength(1);
+    expect(cd[0].dueOn).toBe("2023-12-05");
+    expect(cd[0].description).toBe("90 days from publication");
+  }, 180_000);
+
   it("reports a document with no redline honestly", async () => {
     const { last } = await analyze("2024-10872");
     const result = last.result;

@@ -87,6 +87,7 @@ export const STAGE_LABEL: Record<string, string> = {
   model: "Assessing changes needing judgement",
   summarise: "Summarising the important changes",
   cards: "Assembling the briefing",
+  compliance: "Finding the compliance filing deadline",
 };
 
 /**

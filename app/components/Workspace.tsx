@@ -115,6 +115,12 @@ interface Analysis {
   provisionsChanged: number;
   categories: Record<string, string>;
   categoryGloss: Record<string, string>;
+  complianceDeadlines: Array<{
+    dueOn: string | null;
+    description: string;
+    sentence: string;
+    span: [number, number];
+  }>;
   byCategory: Record<string, number>;
   editorialOnlyProvisions: number;
   redline: { available: boolean; reason: string | null };
@@ -135,7 +141,6 @@ export default function Workspace() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [visible, setVisible] = useState(20);
 
   const lookup = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,7 +166,6 @@ export default function Workspace() {
     setSelected(docNumber);
     setAnalysis(null);
     setStages([]);
-    setVisible(20);
     setBusy(true);
     setError(null);
 
@@ -310,32 +314,44 @@ export default function Workspace() {
         </div>
       )}
 
-      {analysis && <Result analysis={analysis} docNumber={selected!} visible={visible} onMore={() => setVisible((v) => v + 20)} />}
+      {analysis && <Result analysis={analysis} docNumber={selected!} />}
     </main>
   );
 }
 
-function Result({
-  analysis,
-  docNumber,
-  visible,
-  onMore,
-}: {
-  analysis: Analysis;
-  docNumber: string;
-  visible: number;
-  onMore: () => void;
-}) {
+const PER_CATEGORY = 10;
+
+function Result({ analysis, docNumber }: { analysis: Analysis; docNumber: string }) {
   const { funnel, capabilities, verificationRate, redline } = analysis;
-  const shown = analysis.changes.slice(0, visible);
 
   // Group into the categories the reader triages on, preserving server order.
   const groups: Array<[string, Change[]]> = [];
-  for (const c of shown) {
+  for (const c of analysis.changes) {
     const last = groups[groups.length - 1];
     if (last && last[0] === c.category) last[1].push(c);
     else groups.push([c.category, [c]]);
   }
+
+  /**
+   * One category open at a time, the highest-priority one by default.
+   *
+   * Sixty-four provisions under the first heading pushed every other category off the
+   * screen, so a reader could not tell what else the document did without scrolling past
+   * all of them. Collapsed sections plus the index above make the shape of the document
+   * visible before any of its detail.
+   */
+  const [open, setOpen] = useState<Record<string, boolean>>(() =>
+    groups[0] ? { [groups[0][0]]: true } : {},
+  );
+  const [shownIn, setShownIn] = useState<Record<string, number>>({});
+
+  const reveal = useCallback((category: string) => {
+    setOpen((o) => ({ ...o, [category]: true }));
+    // Let the section render before scrolling to it.
+    requestAnimationFrame(() => {
+      document.getElementById(`cat-${category}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
 
   return (
     <>
@@ -347,6 +363,24 @@ function Result({
             View official document ↗
           </a>
         </div>
+
+        {analysis.complianceDeadlines.length > 0 && (
+          <div className="dates">
+            {analysis.complianceDeadlines.map((c, i) => (
+              <div key={i} className="deadline">
+                <b>
+                  {c.dueOn
+                    ? `Compliance filing due ${c.dueOn}`
+                    : `Compliance filing due ${c.description}`}
+                </b>
+                <div className="sub">
+                  {c.dueOn ? `${c.description}. ` : ""}
+                  {c.sentence}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {(analysis.meta.commentsCloseOn || analysis.meta.effectiveOn) && (
           <div className="dates">
@@ -441,32 +475,60 @@ function Result({
         </div>
       )}
 
-      {groups.map(([category, items]) => (
-        <section key={category}>
-          <h3 className="cat">
-            {analysis.categories[category] ?? category}
-            <span className="count">
-              {(() => {
-                const total = analysis.byCategory[category] ?? items.length;
-                const noun = total === 1 ? "provision" : "provisions";
-                return items.length < total
-                  ? `${items.length} of ${total} ${noun}`
-                  : `${total} ${noun}`;
-              })()}
-            </span>
-          </h3>
-          <p className="gloss">{analysis.categoryGloss[category]}</p>
-          {items.map((c) => (
-            <ChangeView key={c.id} change={c} docNumber={docNumber} />
+      {groups.length > 0 && (
+        <nav className="index">
+          {groups.map(([category, items]) => (
+            <button
+              key={category}
+              className={open[category] ? "chip on" : "chip"}
+              onClick={() => reveal(category)}
+            >
+              {analysis.categories[category] ?? category}
+              <b>{items.length}</b>
+            </button>
           ))}
-        </section>
-      ))}
-
-      {visible < analysis.changes.length && (
-        <button className="ghost" onClick={onMore}>
-          Show more ({analysis.changes.length - visible} remaining)
-        </button>
+        </nav>
       )}
+
+      {groups.map(([category, items]) => {
+        const isOpen = open[category] ?? false;
+        const shown = shownIn[category] ?? PER_CATEGORY;
+        return (
+          <section key={category} id={`cat-${category}`}>
+            <h3 className="cat">
+              <button
+                className="disclose"
+                onClick={() => setOpen((o) => ({ ...o, [category]: !isOpen }))}
+                aria-expanded={isOpen}
+              >
+                <span className="caret">{isOpen ? "▾" : "▸"}</span>
+                {analysis.categories[category] ?? category}
+              </button>
+              <span className="count">
+                {items.length} {items.length === 1 ? "provision" : "provisions"}
+              </span>
+            </h3>
+            {isOpen && (
+              <>
+                <p className="gloss">{analysis.categoryGloss[category]}</p>
+                {items.slice(0, shown).map((c) => (
+                  <ChangeView key={c.id} change={c} docNumber={docNumber} />
+                ))}
+                {shown < items.length && (
+                  <button
+                    className="ghost"
+                    onClick={() =>
+                      setShownIn((v) => ({ ...v, [category]: shown + PER_CATEGORY }))
+                    }
+                  >
+                    Show more ({items.length - shown} remaining in this group)
+                  </button>
+                )}
+              </>
+            )}
+          </section>
+        );
+      })}
     </>
   );
 }
