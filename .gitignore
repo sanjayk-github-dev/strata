@@ -19,6 +19,12 @@ data/cache/
 # Generated reports
 out/
 
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Local feedback store. File-backed for local dev only; Postgres in deployment.
+data/feedback.jsonl
+
 # Next.js
 .next/
 next-env.d.ts
