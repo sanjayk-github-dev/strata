@@ -993,6 +993,40 @@ since the product's claim is that ambiguity is surfaced rather than resolved.
 
 ---
 
+### The text before the diff
+
+A reader asked, of a card sitting under "Deadlines and timing", where the deadline was. The
+categorisation was right — §3.5.2.1 replaces "the timeline as listed in Transmission Provider's
+LGIP" with a hard one hundred fifty (150) Calendar Days — but nothing the card showed was about a
+deadline. The redline listed twenty revisions in document order, and the deadline was the fifth.
+
+Three things had to change together.
+
+**Reconstruct the provision as amended.** `reconstructPassage` drops every bracketed deletion and
+keeps every italicised addition over a window, producing continuous prose rather than fragments.
+Distinct from `reconstruct`, which leaves neighbouring groups' markup in the context as raw source —
+correct for a rule comparing two readings, unreadable for a person. It also widens the window to
+whole edits first, so no bracket pair is ever cut, and removes the empty pair left behind by Order
+No. 2023's genuinely nested `[[…]]`.
+
+**Open on the passage that earned the category.** Signal lists are ordered strongest-first, and the
+ordering is load-bearing twice: it keeps a signature block's "on the day and year first above
+written" from reading as a deadline, and it keeps a heading's "Processing Time" from beating "one
+hundred fifty (150) Calendar Days" for where the card starts reading.
+
+**Summarise the passage, not one revision.** The model had been given a single group's before/after,
+whose context still contains its neighbours' unapplied markup — so it described §3.5.2.1 as "150
+Calendar Days after receipt", accurate for that revision and stale, because a sibling revision moved
+the trigger to the close of the Customer Engagement Window. Feeding it the fully-applied passage —
+the same text the card displays — makes a statement that contradicts what the reader is looking at
+impossible to produce. Statements fell from 21 to 17 on this document as the wider window pushed
+more of them into the grounding gate, which is the gate working.
+
+Bounded at four passages of 900 characters, with the remainder reported: Section 1. Definitions
+changes in 73 places across roughly 20,000 characters.
+
+---
+
 ### Separate statements are outside the convention
 
 Found by reading the briefing, not by a test. Order No. 2023's "Other changes" contained an entry

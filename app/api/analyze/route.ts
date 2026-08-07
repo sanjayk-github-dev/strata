@@ -22,7 +22,9 @@ import {
   applyResiduals,
   officialUrl,
   STAGE_LABEL,
+  AS_READS_LABEL,
   CATEGORY_ORDER,
+  CATEGORY_SIGNALS,
   substantiveOutline,
   TIER_LABEL,
   extractRedline,
@@ -220,14 +222,45 @@ export async function GET(request: Request): Promise<Response> {
               .slice(0, 4),
           ).slice(0, 24);
           for (const [i, change] of top.entries()) {
-            const group = materiality.groups.find((g) =>
+            // Summarise the revision that earned the provision its category, not
+            // whichever comes first in the section. On §3.5.2.1 the first revision renames
+            // a study; the one the reader is here for moves a deadline from "the timeline
+            // listed in the LGIP" to a hard 150 Calendar Days.
+            const mine = materiality.groups.filter((g) =>
               g.group.edits.some((e) => change.edits.some((x) => x.id === e.id)),
             );
+            const signals =
+              change.category === "other"
+                ? null
+                : CATEGORY_SIGNALS[change.category as keyof typeof CATEGORY_SIGNALS];
+            // Rank by *which* signal matched, not merely that one did. The signal lists
+            // are ordered strongest-first, and §3.5.2.1's heading revision matches the
+            // weakest entry ("Processing Time") — enough to win a first-match search and
+            // send the renaming to the model again.
+            const rank = (g: (typeof mine)[number]) => {
+              if (!signals) return 0;
+              const text = `${g.beforeAfter.before} ${g.beforeAfter.after}`;
+              const i = signals.findIndex((re) => re.test(text));
+              return i === -1 ? signals.length : i;
+            };
+            const group = [...mine].sort((a, b) => rank(a) - rank(b))[0];
             if (!group) continue;
+
+            /**
+             * Summarise the passage, not one revision's local window.
+             *
+             * A group's own before/after leaves its neighbours' markup untouched as
+             * context, so the model described §3.5.2.1 as "150 Calendar Days after
+             * receipt" — accurate for that revision and stale, because a sibling revision
+             * moved the trigger to the close of the Customer Engagement Window. The
+             * passage has every revision applied, and it is what the card displays, so a
+             * statement about it cannot contradict what the reader is looking at.
+             */
+            const passage = change.passages[0];
             const r = await generateStatement(
               change.provision,
-              group.beforeAfter.before,
-              group.beforeAfter.after,
+              passage ? passage.before : group.beforeAfter.before,
+              passage ? passage.text : group.beforeAfter.after,
               change.edits,
               llm,
             );
@@ -283,6 +316,15 @@ export async function GET(request: Request): Promise<Response> {
               disposition: c.determinations[0]?.disposition ?? null,
               determinationCount: c.determinations.length,
               revisionCount: c.revisionCount,
+              asReadsLabel: AS_READS_LABEL[c.provisionStatus] ?? "As printed in this document",
+              passageCount: c.passageCount,
+              passages: c.passages.map((p) => ({
+                text: p.text,
+                leads: p.leads,
+                clippedStart: p.clippedStart,
+                clippedEnd: p.clippedEnd,
+                span: p.span,
+              })),
               edits: collapseRepeats(c.edits).slice(0, 8),
               citations: c.citations.slice(0, 4).map((x) => ({
                 span: x.span,

@@ -66,6 +66,15 @@ interface Change {
   disposition: string | null;
   determinationCount: number;
   revisionCount: number;
+  asReadsLabel: string;
+  passageCount: number;
+  passages: Array<{
+    text: string;
+    leads: boolean;
+    clippedStart: boolean;
+    clippedEnd: boolean;
+    span: [number, number];
+  }>;
   edits: CardEdit[];
   citations: Array<{ span: [number, number]; sectionId: string }>;
 }
@@ -523,8 +532,29 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
         </span>
       </div>
 
+      {change.passages.length > 0 && (
+        <div className="reads">
+          <div className="lbl">{change.asReadsLabel}</div>
+          {change.passages.map((p, i) => (
+            <p key={i} className="passage">
+              {p.clippedStart && <span className="ctx">… </span>}
+              {p.text.replace(/\s+/g, " ").trim()}
+              {p.clippedEnd && <span className="ctx"> …</span>}
+            </p>
+          ))}
+          {change.passageCount > change.passages.length && (
+            <div className="sub">
+              {change.passageCount - change.passages.length} further changed passage
+              {change.passageCount - change.passages.length === 1 ? "" : "s"} in this provision —
+              open the source to read them.
+            </div>
+          )}
+        </div>
+      )}
+
       {change.edits.length > 0 && (
         <div className="rl">
+          <div className="lbl">What changed</div>
           {change.edits.map((e, i) => (
             <span key={i}>
               {e.kind === "deletion" ? <del>{e.text}</del> : <ins>{e.text}</ins>}
@@ -533,8 +563,7 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
           ))}
           {change.revisionCount > change.edits.length && (
             <div className="sub" style={{ margin: ".4rem 0 0" }}>
-              Showing part of {change.revisionCount} revisions in this provision. Open the
-              source to read them all in context.
+              Showing part of {change.revisionCount} revisions in this provision.
             </div>
           )}
         </div>

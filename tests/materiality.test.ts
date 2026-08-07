@@ -14,6 +14,8 @@ import {
   classifyGroup,
   extractRedline,
   groupAdjacentEdits,
+  mergeSpans,
+  reconstructPassage,
   reconstruct,
   type DocumentMeta,
   type ParsedDocument,
@@ -320,5 +322,62 @@ describe("rule coverage — measured, not assumed", () => {
     const f = classifyEdits(d, extractRedline(d).edits).funnel;
     expect(f.totalEdits).toBe(0);
     expect(f.ruleCoverage).toBe(0);
+  });
+});
+
+describe("passage reconstruction — the provision as amended", () => {
+  it("drops deletions and keeps additions, and the inverse for before", async () => {
+    const d = await doc(DOCS.order2023);
+    const rl = extractRedline(d);
+    const del = rl.edits.find((e) => e.kind === "deletion" && e.text.length > 25)!;
+    const win = [del.citation.span[0] - 300, del.citation.span[1] + 300] as const;
+
+    const after = reconstructPassage(d, win, rl.edits, del.sectionId);
+    const before = reconstructPassage(d, win, rl.edits, del.sectionId, "before");
+
+    expect(after.text).not.toContain(del.text);
+    expect(before.text).toContain(del.text);
+    // Neither reading carries the markup itself.
+    expect(after.text).not.toMatch(/\[|\]/);
+  });
+
+  it("never cuts a bracket pair in half", async () => {
+    // A window ending mid-bracket printed a stray delimiter. The window widens to whole
+    // edits before anything is dropped.
+    const d = await doc(DOCS.order2023);
+    const rl = extractRedline(d);
+    const del = rl.edits.find((e) => e.kind === "deletion" && e.text.length > 40)!;
+    const mid = Math.floor((del.citation.span[0] + del.citation.span[1]) / 2);
+    const p = reconstructPassage(d, [mid, mid + 200], rl.edits, del.sectionId);
+    expect(p.span[0]).toBeLessThanOrEqual(del.citation.span[0]);
+    expect(p.text).not.toMatch(/\[|\]/);
+  });
+
+  it("removes the empty pair left by a nested bracket", async () => {
+    // Order No. 2023 contains "[[timeline as listed in Transmission Provider's LGIP]]".
+    // The extractor matches the inner pair, so dropping it leaves "[]" behind.
+    const d = await doc(DOCS.order2023);
+    const rl = extractRedline(d);
+    const nested = rl.edits.find((e) => e.text.includes("timeline as listed"))!;
+    const p = reconstructPassage(
+      d,
+      [nested.citation.span[0] - 200, nested.citation.span[1] + 200],
+      rl.edits,
+      nested.sectionId,
+    );
+    expect(p.text).not.toContain("[]");
+    expect(p.text).toMatch(/one hundred fifty \(150\) Calendar Days/);
+  });
+
+  it("merges spans that overlap or nearly touch", () => {
+    expect(mergeSpans([[0, 10], [5, 20], [40, 50]])).toEqual([
+      [0, 20],
+      [40, 50],
+    ]);
+    expect(mergeSpans([[0, 10], [15, 20]], 5)).toEqual([[0, 20]]);
+    expect(mergeSpans([[0, 10], [16, 20]], 5)).toEqual([
+      [0, 10],
+      [16, 20],
+    ]);
   });
 });

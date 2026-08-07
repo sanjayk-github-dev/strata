@@ -87,6 +87,95 @@ export function reconstruct(
   return { before: before + tail, after: after + tail };
 }
 
+/**
+ * How much text to show around a changed passage when presenting it to a reader.
+ *
+ * Far wider than CONTEXT_CHARS, and for a different purpose. Sixty characters is enough
+ * for a rule to test equivalence; it is not enough for a person to read a sentence. At
+ * sixty characters the top deadline card showed "one hundred fifty (150) Calendar Days"
+ * with no indication of what had to happen within them.
+ */
+const PASSAGE_CONTEXT = 320;
+
+/**
+ * Reconstruct a passage as it reads *after* the amendment, in continuous prose.
+ *
+ * Distinct from `reconstruct`, which reconstructs one group and leaves every other
+ * group's markup in the context as raw source — correct there, because the rules compare
+ * two readings and identical noise on both sides cannot manufacture a difference. Shown
+ * to a person the same output is unreadable: neighbouring deletions appear as literal
+ * brackets, and a window that cuts one leaves a stray "[" or "]".
+ *
+ * Here every deletion in the window is removed and every addition kept, so the result is
+ * the regulatory text as amended. The window is widened to whole edits first, so no
+ * bracket pair is ever cut in half.
+ */
+export function reconstructPassage(
+  doc: ParsedDocument,
+  span: readonly [number, number],
+  allEdits: readonly Edit[],
+  sectionId?: string,
+  mode: "after" | "before" = "after",
+): { text: string; span: [number, number] } {
+  const section = sectionId ? doc.sections.find((s) => s.id === sectionId) : undefined;
+  const lo = Math.max(section?.span[0] ?? 0, span[0]);
+  const hi = Math.min(section?.span[1] ?? doc.text.length, span[1]);
+
+  const touching = allEdits
+    .filter((e) => e.citation.span[0] < hi && e.citation.span[1] > lo)
+    .sort((a, b) => a.citation.span[0] - b.citation.span[0]);
+
+  // Widen to whole edits: a window ending mid-bracket would print a stray delimiter.
+  let start = lo;
+  let end = hi;
+  for (const e of touching) {
+    start = Math.min(start, e.citation.span[0]);
+    end = Math.max(end, e.citation.span[1]);
+  }
+  start = Math.max(section?.span[0] ?? 0, start);
+  end = Math.min(section?.span[1] ?? doc.text.length, end);
+
+  let text = "";
+  let cursor = start;
+  for (const e of touching) {
+    const [a, b] = e.citation.span;
+    if (a < cursor) continue;
+    text += doc.text.slice(cursor, a);
+    // Additions are already inline in the source text; deletions are dropped entirely,
+    // brackets included. Reading "before", the two swap: the deletion returns without its
+    // brackets and the addition is not there yet.
+    if (mode === "after" ? e.kind === "addition" : e.kind === "deletion") text += e.text;
+    cursor = b;
+  }
+  text += doc.text.slice(cursor, end);
+
+  /**
+   * Order No. 2023 contains genuinely nested brackets — `[[timeline as listed in
+   * Transmission Provider's LGIP]]`. The extractor matches the innermost pair (the outer
+   * one is already reported in `unmatchedBrackets`), so dropping the edit leaves an empty
+   * `[]` in the reconstructed text. Inside the redline region a bracket means deletion, so
+   * a pair with nothing left in it is a deletion with nothing left to show.
+   */
+  return { text: text.replace(/\[\s*\]/g, ""), span: [start, end] };
+}
+
+/** Merge spans that overlap or sit within `gap` characters of each other. */
+export function mergeSpans(
+  spans: ReadonlyArray<readonly [number, number]>,
+  gap = 0,
+): Array<[number, number]> {
+  const sorted = [...spans].sort((a, b) => a[0] - b[0]);
+  const out: Array<[number, number]> = [];
+  for (const [a, b] of sorted) {
+    const last = out[out.length - 1];
+    if (last && a - last[1] <= gap) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
+
+export { PASSAGE_CONTEXT };
+
 // ---------------------------------------------------------------------------
 // Normalisers
 // ---------------------------------------------------------------------------

@@ -88,3 +88,18 @@ export const STAGE_LABEL: Record<string, string> = {
   summarise: "Summarising the important changes",
   cards: "Assembling the briefing",
 };
+
+/**
+ * Heading for the reconstructed text on a card.
+ *
+ * Tracks provision status because "as it now reads" is false for a proposed rule —
+ * nothing in a NOPR is in force, and a reader who acts on it as though it were has been
+ * misled by the label rather than the text.
+ */
+export const AS_READS_LABEL: Record<string, string> = {
+  proposed: "As proposed",
+  adopted: "As adopted",
+  settled: "As it stands",
+  reopened: "As it stood, now reopened",
+  unknown: "As printed in this document",
+};

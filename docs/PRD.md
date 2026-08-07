@@ -238,11 +238,19 @@ The unit is the provision, not the edit and not the decision block. A reader tra
 Processing Time changed", not "edit 1,406 was an addition" — and a provision is the level at which
 a change can actually be acted on.
 
+**The text comes before the diff.** The first question is what the obligation now is; a list of
+redline fragments cannot answer it, because a diff with no document behind it assumes the reader
+already knows the text it came from. Each entry opens with the provision as amended and puts the
+changes beneath it. Where a provision changed in more places than fit, the entry leads with the
+passage carrying the signal that put it in its category — a deadline entry opens on its deadline —
+and reports how many further passages it is not showing.
+
 Each entry carries:
 
 | Element | Purpose |
 |---|---|
 | **What changed** | One sentence in plain language, emitted only if its quoted evidence matches text this document actually added or deleted |
+| **The provision as amended** | The regulatory text as it now reads, over the passages that changed — reconstructed from source, not summarised, and labelled *As proposed* or *As adopted* according to status |
 | **The redline** | The added and deleted text itself, with repeated substitutions collapsed and counted |
 | **Status** | Proposed / adopted / settled / reopened for this provision |
 | **Agency reasoning** | The decision blocks that direct a change to this provision, where the document contains them |

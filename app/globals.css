@@ -91,3 +91,8 @@ button.link:disabled { text-decoration:none; opacity:.6 }
 .src del { background:#fdeaea; color:#8a1c1c; text-decoration:line-through }
 .src ins { background:#e8f6ec; color:#14601f; text-decoration:underline }
 .src mark { background:#fff6cc; padding:0 .1rem }
+.reads { border-left:3px solid var(--line); padding:.1rem 0 .1rem .7rem; margin:.5rem 0 .7rem }
+.reads .passage { margin:0 0 .5rem; font-size:.9rem; line-height:1.55 }
+.reads .passage:last-of-type { margin-bottom:0 }
+.lbl { font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--mut); margin:0 0 .35rem }
+.rl .lbl { margin-bottom:.3rem }

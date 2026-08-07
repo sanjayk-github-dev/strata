@@ -14,6 +14,7 @@ import {
   buildBriefing,
   categorise,
   CATEGORY_ORDER,
+  CATEGORY_SIGNALS,
   classifyEdits,
   extractDeterminations,
   extractRedline,
@@ -155,6 +156,40 @@ describe("briefing assembly", () => {
         expect(cur.revisionCount).toBeLessThanOrEqual(prev.revisionCount);
       }
     }
+  });
+
+  it("opens on the passage that earned the provision its category", async () => {
+    // The complaint this answers: a card sat under "Deadlines and timing" and showed a
+    // renamed study, because the passage began where the provision begins. The deadline
+    // was real and several hundred characters down.
+    const d = await doc(DOCS.order2023);
+    const b = buildBriefing(d, extractDeterminations(d), classifyEdits(d, extractRedline(d).edits));
+
+    const withSignal = b.changes.filter((c) => c.category !== "other" && c.passages.some((p) => p.leads));
+    expect(withSignal.length).toBeGreaterThan(0);
+    for (const c of withSignal.slice(0, 40)) {
+      // The leading passage comes first, and it carries the category's own signal.
+      expect(c.passages[0]!.leads).toBe(true);
+      const signals = CATEGORY_SIGNALS[c.category as keyof typeof CATEGORY_SIGNALS];
+      expect(signals.some((re) => re.test(c.passages[0]!.text))).toBe(true);
+    }
+  });
+
+  it("bounds how much text one card prints", async () => {
+    // Section 1. Definitions changes in 73 places across ~20,000 characters.
+    const d = await doc(DOCS.order2023);
+    const b = buildBriefing(d, extractDeterminations(d), classifyEdits(d, extractRedline(d).edits));
+    for (const c of b.changes) {
+      expect(c.passages.length).toBeLessThanOrEqual(4);
+      expect(c.passages.length).toBeLessThanOrEqual(c.passageCount);
+      for (const p of c.passages) expect(p.text.length).toBeLessThanOrEqual(900);
+    }
+  });
+
+  it("prints no regulatory text for a determination that changed none", async () => {
+    const d = await doc(DOCS.order1920);
+    const b = buildBriefing(d, extractDeterminations(d), classifyEdits(d, extractRedline(d).edits));
+    expect(b.changes.every((c) => c.passages.length === 0 && c.passageCount === 0)).toBe(true);
   });
 
   it("counts every category and drops nothing (invariant I1)", async () => {
