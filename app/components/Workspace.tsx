@@ -213,7 +213,7 @@ export default function Workspace() {
 
   return (
     <main>
-      <h1>Citation-grade regulatory change intelligence</h1>
+      <h1>Regulatory change intelligence</h1>
 
       <form onSubmit={lookup}>
         <input
