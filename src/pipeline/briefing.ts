@@ -62,10 +62,46 @@ export const CATEGORY_LABEL: Record<ImpactCategory, string> = {
   other: "Other changes",
 };
 
-const DEADLINE = /\b(?:business\s+)?days?\b|\bcalendar\s+days?\b|\bmonths?\b|\bdeadline|\bwithin\s+\w+\s+days?|\btimeline|\bwindow\b/i;
-const MONEY = /\$|\bfee\b|\bdeposit|\bpenalt|\brefund|\bcost\b|\bsecurity\b|\bsurety\b|\bletter of credit/i;
-const THRESHOLD = /\bMW\b|\bkV\b|\bpercent\b|%|\bthreshold|\bexceed|\bat least\b|\bno more than\b/i;
-const OBLIGATION = /\b(?:shall|must|may not|is required to|will)\b/i;
+/**
+ * Timing language, which has to be narrower than it first looks.
+ *
+ * A bare `\bdays?\b` seemed obviously right and was not: every FERC agreement ends
+ * "executed ... on the day and year first above written", so the signature block of the
+ * pro forma LGIA matched, and a 33-edit Recitals entry sat at the top of the briefing
+ * under "Deadlines and timing" with no deadline in it. A period of time is a deadline
+ * when it is *counted* — "one hundred fifty (150) Calendar Days" — or when the text names
+ * the timing concept outright.
+ */
+const DEADLINE = new RegExp(
+  [
+    String.raw`\b(?:calendar|business|working)\s+days?\b`, // the form FERC actually uses
+    String.raw`\b\d+\s+(?:days?|weeks?|months?|years?)\b`,
+    String.raw`\(\d+\)\s*(?:calendar\s+|business\s+|working\s+)?(?:days?|weeks?|months?)\b`,
+    String.raw`\bwithin\s+(?:\S+\s+){0,4}?(?:days?|weeks?|months?|hours?)\b`,
+    String.raw`\bno later than\b`,
+    String.raw`\bdeadline`,
+    String.raw`\btimeline`,
+    String.raw`\bprocessing time\b`,
+    String.raw`\bdue date\b`,
+    String.raw`\bwindow\b`, // "Cluster Request Window" — a defined filing period
+  ].join("|"),
+  "i",
+);
+
+/**
+ * `\bsecurity\b` alone was too broad in the other direction: reliability and system
+ * security are discussed constantly in these documents and are not money. Financial
+ * security has its own vocabulary, so use that.
+ */
+const MONEY =
+  /\$|\bfees?\b|\bdeposit|\bpenalt|\brefund|\bcosts?\b|\bsurety\b|\bletter of credit\b|\bfinancial security\b|\bsecurity (?:deposit|arrangement|instrument)/i;
+
+/** Bare "at least" and "no more than" quantify anything; require the quantity. */
+const THRESHOLD =
+  /\bMW\b|\bkV\b|\bpercent\b|%|\bthreshold|\bexceeds?\b|\bat least\s+\d|\bno more than\s+\d/i;
+
+/** "will" is future tense far more often than it is an obligation. */
+const OBLIGATION = /\b(?:shall|must|may not|is required to|are required to)\b/i;
 
 /**
  * Classify by what changed, preferring the most consequential signal present.

@@ -131,7 +131,7 @@ status, never whether a given provision is settled.
 
 ### Materiality is the actual problem
 
-Measured on Order 2023-A: of 1,431 parsed edits, 924 are editorial (750 are a bare `[the]`), 204 carry
+Measured on Order 2023-A: of 1,419 parsed edits, 925 are editorial (750 groups are a bare `[the]`), 61 carry
 legal effect, and 303 need judgement. Separating them is the core intelligence task.
 
 **Rules must be certain, not usually right.** They classify *groups* (a `[A]`+`a` pair is only

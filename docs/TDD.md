@@ -600,8 +600,8 @@ judged on the pair: `[A]` + `a` is a capitalisation fix, while `a[n]` + `non-ref
 a fee is. **Adjacency is measured in non-whitespace characters** — the source carries XML indentation,
 so roughly 25 raw characters separate that pair, and a raw-distance threshold splits it.
 
-**Measured:** Order No. 2023-A → 1,431 edits (502 additions, 929 deletions) in 1,262 logical groups.
-Order No. 2023 → 1,715 edits (1,225 / 490) in 746 groups.
+**Measured:** Order No. 2023-A → 1,419 edits (490 additions, 929 deletions) in 1,250 logical groups.
+Order No. 2023 → 1,663 edits (1,194 / 469) in 694 groups.
 
 **Result:** 28 Phase 4 tests, 166 total. Every edit's citation verifies; all are emitted `undecided`
 with no `decidedBy`, since nothing has classified them yet.
@@ -633,10 +633,10 @@ The open question this phase existed to answer.
 
 | Document | Edits | Groups | Material | Editorial | Undecided | **Rule coverage** |
 |---|---|---|---|---|---|---|
-| Order No. 2023-A | 1,431 | 1,262 | 68 | 927 | 436 | **69.5%** |
-| Order No. 2023 | 1,715 | 746 | 941 | 99 | 675 | **60.6%** |
+| Order No. 2023-A | 1,419 | 1,250 | 61 | 925 | 433 | **69.5%** |
+| Order No. 2023 | 1,663 | 694 | 928 | 105 | 630 | **62.1%** |
 
-Rules decided the majority, and a real remainder — 436 and 675 edits — genuinely needs judgement. That
+Rules decided the majority, and a real remainder — 433 and 630 edits — genuinely needs judgement. That
 is the two-tier design working as intended rather than a shortfall: those go to Phase 6 confidence-scored
 and escalable, not defaulted to a classification.
 
@@ -976,6 +976,33 @@ since the product's claim is that ambiguity is surfaced rather than resolved.
 | Citation verification rate surfaced per version | PRD FR13 |
 | **All API responses under 4.5 MB** | §9 |
 | A docket absent from the manifest analyses correctly | arbitrary-input promise |
+
+---
+
+### Separate statements are outside the convention
+
+Found by reading the briefing, not by a test. Order No. 2023's "Other changes" contained an entry
+titled *B. Cost of Heatmap (Section III.A.1.c.iii)* whose edits included *"carte blanche"* and
+*"ex ante"*. Those are a Commissioner's dissent italicising for emphasis — and the parser was
+reporting them as regulatory additions, with citations, in a product whose whole claim is that it
+does not fabricate changes.
+
+The cause is the same one that put the Federal Register footer inside the region: separate statements
+are printed inside `<SUPLINF>`, after the appendices, so bounding the region at the end of the body
+swept in 132,000 characters that no legend governs. A Commissioner writing separately is not
+observing the appendix's markup convention.
+
+The region now ends at the first separate statement, detected by the GPO opener convention
+(`DANLY, Commissioner, concurring:` as its own `<FP>` or `<HD>`) held in the registry as data. It is
+present in six of the seven verification documents; Order No. 1920-B genuinely has none.
+
+**Cost of the bug: 52 fabricated edits on Order No. 2023, 12 on Order No. 2023-A.** Every measured
+figure in this document and the PRD was re-measured after the fix.
+
+Worth noting what did *not* catch this. Citation verification passes on a fabricated edit, because
+the quoted text really is in the document at the stated offset — extraction and verification agree
+because they share the same wrong premise about where the convention holds. This is the failure mode
+§4 calls out as invisible to the verifier, observed for the second time.
 
 ---
 

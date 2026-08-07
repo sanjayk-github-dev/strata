@@ -38,6 +38,12 @@ interface Version {
   officialUrl: string;
 }
 
+/** A run of source text, labelled by what the redline says happened to it. */
+interface Segment {
+  text: string;
+  kind: "unchanged" | "addition" | "deletion";
+}
+
 interface CardEdit {
   kind: "addition" | "deletion";
   text: string;
@@ -421,7 +427,15 @@ function Result({
         <section key={category}>
           <h3 className="cat">
             {analysis.categories[category] ?? category}
-            <span className="count">{analysis.byCategory[category] ?? items.length}</span>
+            <span className="count">
+              {(() => {
+                const total = analysis.byCategory[category] ?? items.length;
+                const noun = total === 1 ? "provision" : "provisions";
+                return items.length < total
+                  ? `${items.length} of ${total} ${noun}`
+                  : `${total} ${noun}`;
+              })()}
+            </span>
           </h3>
           {items.map((c) => (
             <ChangeView key={c.id} change={c} docNumber={docNumber} />
@@ -440,9 +454,10 @@ function Result({
 
 function ChangeView({ change, docNumber }: { change: Change; docNumber: string }) {
   const [source, setSource] = useState<null | {
-    before: string;
-    quote: string;
-    after: string;
+    before: Segment[];
+    quote: Segment[];
+    after: Segment[];
+    redlined: boolean;
     sectionPath: string[];
     sourceUrl: string;
   }>(null);
@@ -496,7 +511,9 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
           </span>
         )}
         <span style={{ marginLeft: "auto" }}>
-          {change.editCount} text change{change.editCount === 1 ? "" : "s"}
+          {change.editCount === 0
+            ? "no change to the regulatory text"
+            : `${change.editCount} marked change${change.editCount === 1 ? "" : "s"}`}
         </span>
       </div>
 
@@ -509,7 +526,10 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
             </span>
           ))}
           {change.editCount > shownEdits && (
-            <span className="ctx"> … {change.editCount - shownEdits} more</span>
+            <div className="sub" style={{ margin: ".4rem 0 0" }}>
+              Showing {shownEdits} of {change.editCount} marked changes in this provision.
+              Open the source to read them in context.
+            </div>
           )}
         </div>
       )}
@@ -519,7 +539,7 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
           {loadingSrc ? "Loading…" : source ? "Hide source" : "Show source"}
         </button>
         {change.editCount === 0 && (
-          <span className="hint">Changed no regulatory text — source shows the reasoning.</span>
+          <span className="hint">The agency decided this without changing the text.</span>
         )}
         <button className="link" onClick={flag} disabled={flagged}>
           {flagged ? "flagged" : "flag as wrong"}
@@ -531,10 +551,19 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
           <div className="sub" style={{ margin: "0 0 .35rem" }}>
             {source.sectionPath.slice(-2).join(" › ")}
           </div>
-          <span className="ctx">…{source.before.replace(/\s+/g, " ").slice(-260)}</span>
-          <mark>{source.quote.replace(/\s+/g, " ").slice(0, 1200)}</mark>
-          <span className="ctx">{source.after.replace(/\s+/g, " ").slice(0, 260)}…</span>
-          <div className="sub" style={{ margin: ".4rem 0 0" }}>
+          {source.redlined && (
+            <div className="sub" style={{ margin: "0 0 .5rem" }}>
+              The regulatory text as this document prints it — <del>struck through</del> is
+              removed, <ins>underlined</ins> is added. The highlighted passage is the one this
+              entry cites.
+            </div>
+          )}
+          <Segments segments={source.before} trim="start" limit={340} />
+          <mark>
+            <Segments segments={source.quote} limit={1400} />
+          </mark>
+          <Segments segments={source.after} trim="end" limit={340} />
+          <div className="sub" style={{ margin: ".5rem 0 0" }}>
             <a href={source.sourceUrl} target="_blank" rel="noreferrer">
               Verify on federalregister.gov ↗
             </a>
@@ -542,5 +571,54 @@ function ChangeView({ change, docNumber }: { change: Change; docNumber: string }
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Render source text with its redline intact.
+ *
+ * `trim` keeps the window tight around the cited passage: the leading context is shown
+ * from its end and the trailing context from its start, so the quote stays adjacent to
+ * what surrounds it rather than drifting off the top of a long block.
+ */
+function Segments({
+  segments,
+  trim,
+  limit,
+}: {
+  segments: Segment[];
+  trim?: "start" | "end";
+  limit: number;
+}) {
+  let budget = limit;
+  const kept: Segment[] = [];
+  const ordered = trim === "start" ? [...segments].reverse() : segments;
+  for (const seg of ordered) {
+    if (budget <= 0) break;
+    const text = seg.text.replace(/\s+/g, " ");
+    const clipped =
+      text.length <= budget ? text : trim === "start" ? text.slice(-budget) : text.slice(0, budget);
+    budget -= clipped.length;
+    kept.push({ ...seg, text: clipped });
+  }
+  const final = trim === "start" ? kept.reverse() : kept;
+  const truncated = budget <= 0;
+
+  return (
+    <>
+      {trim === "start" && truncated && <span className="ctx">…</span>}
+      {final.map((seg, i) =>
+        seg.kind === "deletion" ? (
+          <del key={i}>{seg.text}</del>
+        ) : seg.kind === "addition" ? (
+          <ins key={i}>{seg.text}</ins>
+        ) : (
+          <span key={i} className="ctx">
+            {seg.text}
+          </span>
+        ),
+      )}
+      {trim === "end" && truncated && <span className="ctx">…</span>}
+    </>
   );
 }

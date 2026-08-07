@@ -64,6 +64,8 @@ export {
   extractRedline,
   findRedlineRegion,
   groupAdjacentEdits,
+  segmentSource,
+  type SourceSegment,
   type EditGroup,
   type RedlineDiagnostics,
   type RedlineExtraction,

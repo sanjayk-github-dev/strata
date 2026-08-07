@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   extractRedline,
+  segmentSource,
   findRedlineRegion,
   groupAdjacentEdits,
   verifyCitation,
@@ -17,8 +18,11 @@ import { DOCS, doc } from "./fixtures.js";
 
 /** Measured baselines. Drift here means the parser changed behaviour. */
 const BASELINES = {
-  [DOCS.order2023A]: { edits: 1431, additions: 502, deletions: 929 },
-  [DOCS.order2023]: { edits: 1715, additions: 1225, deletions: 490 },
+  // Measured after the region was bounded at the first separate statement. The earlier
+  // figures — 1,431 and 1,715 — included 12 and 52 edits respectively that were emphasis
+  // in Commissioners' concurrences and dissents, not regulatory changes.
+  [DOCS.order2023A]: { edits: 1419, additions: 490, deletions: 929 },
+  [DOCS.order2023]: { edits: 1663, additions: 1194, deletions: 469 },
 } as const;
 
 const NO_REDLINE = [DOCS.order1920, DOCS.order1920A, DOCS.order1920B, DOCS.nopr2214, DOCS.nopr2117];
@@ -70,18 +74,39 @@ describe("region bounds", () => {
     expect(region.span[0]).toBe(region.legendOffset);
   });
 
-  it("ends at the document body, excluding the Federal Register footer", async () => {
+  it("excludes the Federal Register footer", async () => {
     // The footer is literally "[FR Doc. 2024-06563 Filed 4-15-24; 8:45 am]" — a bracket
     // pair that would otherwise be extracted as a deletion.
     const d = await doc(DOCS.order2023A);
     const region = findRedlineRegion(d)!;
-    expect(region.span[1]).toBe(d.markup.bodySpan[1]);
+    expect(region.span[1]).toBeLessThanOrEqual(d.markup.bodySpan[1]);
+    expect(d.text.slice(region.span[1])).toMatch(/\[FR Doc\./);
+    expect(extractRedline(d).edits.some((e) => e.text.includes("FR Doc."))).toBe(false);
+  });
 
-    const tail = d.text.slice(region.span[1]);
-    expect(tail).toMatch(/\[FR Doc\./);
+  it("ends at the first Commissioner's separate statement", async () => {
+    // Separate statements are printed inside <SUPLINF>, after the appendices, so ending
+    // the region at the body bound swept them in. A Commissioner writing separately does
+    // not observe the appendix's markup convention: Christie's dissent in Order No. 2023
+    // italicises "carte blanche", "pro forma" and "ex ante" for emphasis, and each was
+    // being extracted as a regulatory addition. 52 fabricated edits on that document.
+    const d = await doc(DOCS.order2023);
+    const region = findRedlineRegion(d)!;
+    expect(region.span[1]).toBeLessThan(d.markup.bodySpan[1]);
+
+    const tail = d.text.slice(region.span[1], region.span[1] + 400);
+    expect(tail).toMatch(/Commissioner,\s+(?:concurring|dissenting)/);
 
     const r = extractRedline(d);
-    expect(r.edits.some((e) => e.text.includes("FR Doc."))).toBe(false);
+    expect(r.edits.some((e) => e.text.includes("carte blanche"))).toBe(false);
+    // And nothing past the boundary is extracted at all.
+    expect(r.edits.every((e) => e.citation.span[1] <= region.span[1])).toBe(true);
+  });
+
+  it("uses the whole body where the document has no separate statement", async () => {
+    // Order No. 1920-B carries none. The bound must not fire on its absence.
+    const d = await doc(DOCS.order1920B);
+    expect(d.text).not.toMatch(/Commissioner,\s+(?:concurring|dissenting)/);
   });
 
   it("the region covers only part of the document, not all of it", async () => {
@@ -182,13 +207,22 @@ describe("exclusions and diagnostics", () => {
     // The footnote in Order 2023-A's Appendix C italicises a list of OASIS URLs.
     const d = await doc(DOCS.order2023A);
     const r = extractRedline(d);
-    expect(r.diagnostics.italicsInFootnotes).toBe(25);
+    expect(r.diagnostics.italicsInFootnotes).toBe(10);
     expect(r.edits.some((e) => e.text.includes("oasis.oati.com"))).toBe(false);
   });
 
-  it("brackets inside footnotes are excluded", async () => {
+  it("no edit is extracted from inside a footnote", async () => {
+    // Asserted as an invariant rather than a count. Bracketed footnote text on this
+    // document turned out to sit entirely within the separate statements, so the
+    // diagnostic now reads 0 — but the exclusion still has to hold, and a count of zero
+    // cannot show that.
     const d = await doc(DOCS.order2023);
-    expect(extractRedline(d).diagnostics.bracketsInFootnotes).toBeGreaterThan(0);
+    for (const e of extractRedline(d).edits) {
+      const inside = d.markup.footnotes.some(
+        ([a, b]) => e.citation.span[0] >= a && e.citation.span[0] < b,
+      );
+      expect(inside).toBe(false);
+    }
   });
 
   it("unmatched brackets are reported, not silently dropped (I1)", async () => {
@@ -249,5 +283,50 @@ describe("adjacency grouping", () => {
     const groups = groupAdjacentEdits(d, edits);
     expect(groups.reduce((n, g) => n + g.edits.length, 0)).toBe(edits.length);
     expect(groups.length).toBeLessThan(edits.length); // some really did pair
+  });
+});
+
+describe("source segmentation keeps the markup a reviewer came to check", () => {
+  it("labels additions and deletions inside a window of source text", async () => {
+    const d = await doc(DOCS.order2023A);
+    const rl = extractRedline(d);
+    const edit = rl.edits.find((e) => e.kind === "deletion" && e.text.length > 20)!;
+
+    const from = Math.max(0, edit.citation.span[0] - 300);
+    const to = Math.min(d.text.length, edit.citation.span[1] + 300);
+    const segs = segmentSource(d.text.slice(from, to), from, rl.edits);
+
+    // The window reassembles exactly — segmentation may not lose or duplicate a character.
+    expect(segs.map((s) => s.text).join("")).toBe(d.text.slice(from, to));
+    // The segment covering the edit's own offset carries the edit's kind, so the
+    // reviewer sees the marking exactly where the pipeline says the change is.
+    let at = from;
+    const covering = segs.find((sg) => {
+      const hit = at <= edit.citation.span[0] && edit.citation.span[0] < at + sg.text.length;
+      at += sg.text.length;
+      return hit;
+    });
+    expect(covering?.kind).toBe("deletion");
+  });
+
+  it("returns one unchanged run where nothing was edited", async () => {
+    const d = await doc(DOCS.order2023A);
+    const rl = extractRedline(d);
+    // The preamble sits outside the redline region entirely.
+    const segs = segmentSource(d.text.slice(2000, 2600), 2000, rl.edits);
+    expect(segs).toHaveLength(1);
+    expect(segs[0]!.kind).toBe("unchanged");
+  });
+
+  it("clips edits that straddle the window edge", async () => {
+    const d = await doc(DOCS.order2023A);
+    const rl = extractRedline(d);
+    const edit = rl.edits.find((e) => e.text.length > 40)!;
+    // Start the window in the middle of an edit.
+    const from = edit.citation.span[0] + 10;
+    const to = from + 200;
+    const segs = segmentSource(d.text.slice(from, to), from, rl.edits);
+    expect(segs.map((s) => s.text).join("")).toBe(d.text.slice(from, to));
+    expect(segs[0]!.kind).toBe(edit.kind);
   });
 });

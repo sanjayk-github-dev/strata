@@ -6,11 +6,14 @@
  * body limit and make every card payload enormous for no benefit.
  *
  * The response includes the span's own text plus surrounding context, so a reviewer sees
- * the cited passage *in situ* rather than as a bare fragment.
+ * the cited passage *in situ* rather than as a bare fragment — and, where the document
+ * publishes a redline, with the additions and deletions still marked. Flattened to plain
+ * text the passage answers "is this really in the document?" but not "what changed in
+ * it?", which is the question the reviewer actually arrived with.
  */
 import { NextResponse } from "next/server";
 
-import { analyzeDocument, sectionAtOffset } from "@/src/pipeline/index";
+import { analyzeDocument, extractRedline, segmentSource, sectionAtOffset } from "@/src/pipeline/index";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -37,10 +40,18 @@ export async function GET(request: Request): Promise<Response> {
       return NextResponse.json({ error: "Span outside document" }, { status: 400 });
     }
     const section = sectionAtOffset(doc, start);
+    const rl = extractRedline(doc);
+    const seg = (from: number, to: number) =>
+      segmentSource(doc.text.slice(from, to), from, rl.edits);
+
+    const beforeStart = Math.max(0, start - pad);
+    const afterEnd = Math.min(doc.text.length, end + pad);
     return NextResponse.json({
-      before: doc.text.slice(Math.max(0, start - pad), start),
-      quote: doc.text.slice(start, end),
-      after: doc.text.slice(end, Math.min(doc.text.length, end + pad)),
+      before: seg(beforeStart, start),
+      quote: seg(start, end),
+      after: seg(end, afterEnd),
+      /** True where the markup is meaningful, so the client can label it honestly. */
+      redlined: rl.region !== null,
       sectionPath: section?.headingPath ?? [],
       sourceUrl: doc.meta.htmlUrl,
     });

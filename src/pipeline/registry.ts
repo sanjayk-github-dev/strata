@@ -61,6 +61,12 @@ export interface RedlineRule {
    * regulatory changes.
    */
   scope: "declaring-appendix-only";
+  /**
+   * Opener of a Commissioner's separate statement, which ends the region.
+   *
+   * Optional: an agency whose orders carry no separate statements simply omits it.
+   */
+  separateStatementPattern?: RegExp;
 }
 
 export interface AgencyConvention {
@@ -102,6 +108,21 @@ export const FERC_RULEMAKING: AgencyConvention = {
     additionTag: { tag: "E", attr: "T", value: "03" },
     deletionMarkup: "square-brackets",
     scope: "declaring-appendix-only",
+    /**
+     * Where the agency's own text stops and individual Commissioners begin.
+     *
+     * Separate statements are printed inside the same `<SUPLINF>` as the appendices, so
+     * bounding the redline region at the end of `<SUPLINF>` still swept them in — and a
+     * Commissioner writing separately is not observing the appendix's markup convention.
+     * Christie's dissent in Order No. 2023 italicises "carte blanche", "pro forma" and
+     * "ex ante" for emphasis, and the parser read each one as a regulatory addition.
+     *
+     * The opener is a GPO convention: "DANLY, Commissioner, concurring:" set as its own
+     * `<FP>` or `<HD>`. Present in six of the seven verification documents; Order No.
+     * 1920-B genuinely carries no separate statement.
+     */
+    separateStatementPattern:
+      /\b[A-Z][A-Za-z'-]+,\s+(?:Commissioner|Chairman)(?:,\s+[A-Z][A-Za-z'-]+,\s+Commissioner)*,\s+(?:concurring|dissenting)/,
   },
 
   crossReference: {

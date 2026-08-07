@@ -205,11 +205,24 @@ describe("in-place source verification (PRD FR9)", () => {
     const res = await fetch(`${BASE}/api/source?doc=2024-06563&start=1406682&end=1406696&pad=80`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.quote).toHaveLength(14);
-    expect(body.before.length).toBeGreaterThan(0);
-    expect(body.after.length).toBeGreaterThan(0);
+    const join = (segs: Array<{ text: string }>) => segs.map((s) => s.text).join("");
+    expect(join(body.quote)).toHaveLength(14);
+    expect(join(body.before).length).toBeGreaterThan(0);
+    expect(join(body.after).length).toBeGreaterThan(0);
     expect(body.sectionPath.length).toBeGreaterThan(0);
     expect(body.sourceUrl).toMatch(/federalregister\.gov/);
+  }, 120_000);
+
+  it("marks the additions and deletions inside the passage it returns", async () => {
+    // Plain text answers "is this really in the document?" but not "what changed in it?",
+    // which is the question a reviewer opening the source actually has. Additions are
+    // italics in the XML and vanish entirely once the text is flattened.
+    const res = await fetch(`${BASE}/api/source?doc=2024-06563&start=1406682&end=1406696&pad=600`);
+    const body = await res.json();
+    expect(body.redlined).toBe(true);
+    const all = [...body.before, ...body.quote, ...body.after];
+    expect(all.some((s: { kind: string }) => s.kind === "addition")).toBe(true);
+    expect(all.some((s: { kind: string }) => s.kind === "unchanged")).toBe(true);
   }, 120_000);
 
   it("refuses an oversized span rather than shipping the document", async () => {

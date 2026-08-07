@@ -60,6 +60,33 @@ describe("categorisation", () => {
     ).toBe("definition");
   });
 
+  it("does not read a signature block as a deadline", () => {
+    // Every FERC agreement ends "executed ... on the day and year first above written",
+    // so a bare \bdays?\b put a 33-edit Recitals entry at the very top of the briefing
+    // under "Deadlines and timing", with no deadline anywhere in it. A period of time is
+    // a deadline when it is counted or named, not when the word "day" appears.
+    const sig = "duly executed by their duly authorized officers on the day and year first above written";
+    expect(categorise(sig, "Recitals")).not.toBe("deadline");
+
+    expect(categorise("within one hundred fifty (150) Calendar Days", "3.5.2.1")).toBe("deadline");
+    expect(categorise("Transmission Provider shall complete the study within 30 days", "7.4")).toBe(
+      "deadline",
+    );
+    expect(categorise("the Cluster Request Window closes", "7.4")).toBe("deadline");
+  });
+
+  it("does not read system security as a financial security requirement", () => {
+    expect(categorise("to preserve the reliability and security of the system", "9.1")).not.toBe(
+      "money",
+    );
+    expect(categorise("shall post financial security in the amount of", "11.5")).toBe("money");
+  });
+
+  it("does not read a bare comparative as a threshold", () => {
+    expect(categorise("at least the Parties shall confer", "9.1")).not.toBe("threshold");
+    expect(categorise("facilities of at least 20 MW", "3.1")).toBe("threshold");
+  });
+
   it("every category has a place in the display order", () => {
     expect(new Set(CATEGORY_ORDER).size).toBe(CATEGORY_ORDER.length);
     for (const c of ["deadline", "money", "threshold", "obligation", "definition", "other"]) {

@@ -84,7 +84,25 @@ export function findRedlineRegion(doc: ParsedDocument): RedlineRegion | null {
   if (found === -1) return null;
 
   const legendOffset = bodyStart + found;
-  return { legendOffset, span: [legendOffset, bodyEnd] };
+
+  /**
+   * Stop at the first Commissioner's separate statement.
+   *
+   * Same reasoning that ends the region at `</SUPLINF>` rather than the document: the
+   * convention holds where the agency declared it, and text past that boundary uses
+   * brackets and italics for ordinary purposes. Order No. 2023 prints three separate
+   * statements *inside* `<SUPLINF>`, after the appendices — 132,000 characters in which
+   * emphasis and Latin phrases were being read as regulatory additions.
+   */
+  const opener = convention?.redline?.separateStatementPattern;
+  let end = bodyEnd;
+  if (opener) {
+    const re = new RegExp(opener.source, opener.flags.replace(/g/g, ""));
+    const at = doc.text.slice(legendOffset, bodyEnd).search(re);
+    if (at !== -1) end = legendOffset + at;
+  }
+
+  return { legendOffset, span: [legendOffset, end] };
 }
 
 function inAnyRange(ranges: ReadonlyArray<readonly [number, number]>, offset: number): boolean {
@@ -246,4 +264,54 @@ export function groupAdjacentEdits(
   }
 
   return groups;
+}
+
+/** A run of source text, labelled by what the redline says happened to it. */
+export interface SourceSegment {
+  text: string;
+  kind: "unchanged" | "addition" | "deletion";
+}
+
+/**
+ * Split a window of source text into unchanged / added / deleted runs.
+ *
+ * The source panel existed to let a reviewer check a claim against the document, and it
+ * was showing plain text — so additions, which the XML marks with italics and the text
+ * projection flattens, were indistinguishable from text that never moved. A reviewer
+ * looking at the passage could see *that* it was cited and not *what changed in it*,
+ * which is most of what the panel is for.
+ *
+ * Segmenting from the same edits the briefing was built from is deliberate: if the two
+ * ever disagree, the disagreement is visible in the panel rather than hidden behind a
+ * second, independent markup pass.
+ */
+export function segmentSource(
+  text: string,
+  windowStart: number,
+  edits: readonly Edit[],
+): SourceSegment[] {
+  const windowEnd = windowStart + text.length;
+  const spans = edits
+    .filter((e) => e.citation.span[0] < windowEnd && e.citation.span[1] > windowStart)
+    .map((e) => ({
+      start: Math.max(e.citation.span[0], windowStart),
+      end: Math.min(e.citation.span[1], windowEnd),
+      kind: e.kind,
+    }))
+    .sort((a, b) => a.start - b.start);
+
+  const out: SourceSegment[] = [];
+  let at = windowStart;
+  for (const s of spans) {
+    // Overlapping edits would otherwise emit a negative-length slice.
+    if (s.end <= at) continue;
+    if (s.start > at) out.push({ text: text.slice(at - windowStart, s.start - windowStart), kind: "unchanged" });
+    out.push({
+      text: text.slice(Math.max(s.start, at) - windowStart, s.end - windowStart),
+      kind: s.kind,
+    });
+    at = s.end;
+  }
+  if (at < windowEnd) out.push({ text: text.slice(at - windowStart), kind: "unchanged" });
+  return out.filter((s) => s.text.length > 0);
 }

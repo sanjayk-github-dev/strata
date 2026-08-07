@@ -88,3 +88,6 @@ a { color:inherit }
 button.link { background:none; border:0; color:var(--mut); font-size:.72rem;
   text-decoration:underline; cursor:pointer; padding:.2rem; margin-left:auto }
 button.link:disabled { text-decoration:none; opacity:.6 }
+.src del { background:#fdeaea; color:#8a1c1c; text-decoration:line-through }
+.src ins { background:#e8f6ec; color:#14601f; text-decoration:underline }
+.src mark { background:#fff6cc; padding:0 .1rem }
